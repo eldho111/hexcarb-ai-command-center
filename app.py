@@ -63,3 +63,4 @@ except Exception as e:
     st.error(f"Failed to load module {path}: {e}")
     import traceback
     st.expander("Traceback", expanded=True).write(traceback.format_exc())
+# Temporary change to trigger Heroku build
