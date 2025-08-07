@@ -1,0 +1,26 @@
+# Ignore unnecessary folders
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+logs/
+data/
+*.sqlite3
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Heroku Git
+.git/
