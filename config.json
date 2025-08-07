@@ -1,0 +1,14 @@
+{
+  "company_name": "HexCarb AI Systems",
+  "modules_enabled": {
+    "rd": true,
+    "procurement": false,
+    "accounting": false
+  },
+  "paths": {
+    "data": "data",
+    "logs": "logs",
+    "modules": "modules"
+  },
+  "welcome_message": "HexCarb AI Command Center \u2014 ONLINE"
+}
