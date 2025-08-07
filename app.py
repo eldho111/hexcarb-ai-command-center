@@ -16,10 +16,21 @@ except Exception as e:
     st.warning(f"Theme not applied: {e}")
 
 # Sidebar header
-st.sidebar.markdown("<h2 style='text-align:center; margin:6px 0 14px 0; color: #FFFFFF;'>⚡ Hexcarb AI</h2>", unsafe_allow_html=True)
+st.sidebar.markdown(
+    "<h2 style='text-align:center; margin:6px 0 14px 0; color: #FFFFFF;'>⚡ Hexcarb AI</h2>",
+    unsafe_allow_html=True
+)
 
 # Navigation
-menu_items = ["R&D", "Chat", "Procurement", "Settings"]
+menu_items = [
+    "R&D",
+    "Chat",
+    "Procurement",
+    "Accounting",     # ✅ Added
+    "HR",             # ✅ Added
+    "Settings"
+]
+
 if "hc_menu" not in st.session_state:
     st.session_state.hc_menu = menu_items[0]
 
@@ -34,8 +45,11 @@ module_map = {
     "R&D": "modules.rd_tab",
     "Chat": "modules.chat_tab",
     "Procurement": "modules.proc_tab",
+    "Accounting": "modules.accounting_tab",  # ✅ Added
+    "HR": "modules.hr_tab",                  # ✅ Added
     "Settings": "modules.settings_tab"
 }
+
 path = module_map.get(selected)
 
 # Try to import and render the selected module
