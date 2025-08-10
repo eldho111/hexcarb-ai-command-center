@@ -1,4 +1,5 @@
 # app.py — Hexcarb AI Command Center (final launcher)
+import os
 import streamlit as st
 from pathlib import Path
 import importlib
@@ -7,6 +8,29 @@ ROOT = Path(__file__).parent
 
 # Page config
 st.set_page_config(page_title="Hexcarb AI Command Center", layout="wide")
+
+
+def require_auth():
+    """Simple email/password gate for Hexcarb members."""
+    if st.session_state.get("authenticated"):
+        return
+
+    st.title("Hexcarb AI Login")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        allowed_domain = email.lower().endswith("@hexcarb.in")
+        correct_password = password == os.getenv("HEXCARB_APP_PASSWORD", "")
+        if allowed_domain and correct_password:
+            st.session_state["authenticated"] = True
+        else:
+            st.error("Invalid credentials or unauthorized domain.")
+
+    st.stop()
+
+
+require_auth()
 
 # Apply theme (safe)
 try:
@@ -63,5 +87,4 @@ except Exception as e:
     st.error(f"Failed to load module {path}: {e}")
     import traceback
     st.expander("Traceback", expanded=True).write(traceback.format_exc())
-# Temporary change to trigger Heroku build
-# Triggering fresh Heroku build
+
