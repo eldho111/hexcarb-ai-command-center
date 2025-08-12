@@ -1,0 +1,28 @@
+name: Smoke Tests
+on: [push, workflow_dispatch]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ping /secure/ping
+        run: |
+          set -e
+          curl -i https://ai.hexcarb.in/secure/ping
+          body=$(curl -s https://ai.hexcarb.in/secure/ping)
+          echo "$body" | grep '"ok": true'
+      - name: Auth login (admin)
+        env:
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASS:  ${{ secrets.ADMIN_PASS }}
+        run: |
+          set -e
+          resp=$(curl -s -X POST https://ai.hexcarb.in/auth/login -d "username=${ADMIN_EMAIL}" -d "password=${ADMIN_PASS}")
+          echo "$resp"
+          echo "$resp" | python - <<'PY'
+import sys,json
+j=json.load(sys.stdin)
+assert 'access_token' in j, 'No access_token in login response'
+print('Role:', j.get('role','?'))
+PY
