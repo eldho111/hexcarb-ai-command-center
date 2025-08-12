@@ -79,6 +79,27 @@ def init_db():
         context TEXT,       -- optional JSON
         created_at TEXT
     )""")
+    # R&D projects
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        owner TEXT,
+        status TEXT,
+        created_at TEXT
+    )""")
+    # R&D tasks
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER,
+        title TEXT,
+        state TEXT,
+        assignee TEXT,
+        due_date TEXT,
+        created_at TEXT,
+        FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )""")
     conn.commit()
     conn.close()
 
@@ -179,3 +200,89 @@ def log_interaction(actor, text, context=None):
                 (actor, text, ctx_json, now))
     conn.commit(); iid = cur.lastrowid; conn.close()
     return iid
+
+# ---------- R&D projects & tasks ----------
+def create_project(name, owner="", status="active"):
+    now = datetime.utcnow().isoformat()
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("INSERT INTO projects (name, owner, status, created_at) VALUES (?,?,?,?)",
+                (name, owner, status, now))
+    conn.commit(); pid = cur.lastrowid; conn.close()
+    return pid
+
+def list_projects(limit=200):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT * FROM projects ORDER BY created_at DESC LIMIT ?", (limit,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close();
+    return rows
+
+def get_project(pid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT * FROM projects WHERE id=?", (pid,))
+    r = cur.fetchone(); conn.close()
+    return dict(r) if r else None
+
+def update_project(pid, name=None, owner=None, status=None):
+    fields = []
+    vals = []
+    if name is not None:
+        fields.append("name=?"); vals.append(name)
+    if owner is not None:
+        fields.append("owner=?"); vals.append(owner)
+    if status is not None:
+        fields.append("status=?"); vals.append(status)
+    if not fields:
+        return False
+    vals.append(pid)
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id=?", vals)
+    conn.commit(); conn.close()
+    return True
+
+def delete_project(pid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM tasks WHERE project_id=?", (pid,))
+    cur.execute("DELETE FROM projects WHERE id=?", (pid,))
+    conn.commit(); conn.close()
+    return True
+
+def create_task(project_id, title, assignee="", state="todo", due_date=None):
+    now = datetime.utcnow().isoformat()
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("INSERT INTO tasks (project_id,title,state,assignee,due_date,created_at) VALUES (?,?,?,?,?,?)",
+                (project_id, title, state, assignee, due_date, now))
+    conn.commit(); tid = cur.lastrowid; conn.close()
+    return tid
+
+def list_tasks(project_id, limit=200):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks WHERE project_id=? ORDER BY id LIMIT ?", (project_id, limit))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close();
+    return rows
+
+def update_task(tid, title=None, state=None, assignee=None, due_date=None):
+    fields = []
+    vals = []
+    if title is not None:
+        fields.append("title=?"); vals.append(title)
+    if state is not None:
+        fields.append("state=?"); vals.append(state)
+    if assignee is not None:
+        fields.append("assignee=?"); vals.append(assignee)
+    if due_date is not None:
+        fields.append("due_date=?"); vals.append(due_date)
+    if not fields:
+        return False
+    vals.append(tid)
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute(f"UPDATE tasks SET {', '.join(fields)} WHERE id=?", vals)
+    conn.commit(); conn.close()
+    return True
+
+def delete_task(tid):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM tasks WHERE id=?", (tid,))
+    conn.commit(); conn.close()
+    return True

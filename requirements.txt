@@ -40,6 +40,8 @@ referencing==0.36.2
 regex==2025.7.34
 requests==2.32.4
 rpds-py==0.26.0
+fastapi==0.115.2
+uvicorn==0.30.6
 safetensors==0.5.3
 scikit-learn==1.7.1
 scipy==1.16.1
