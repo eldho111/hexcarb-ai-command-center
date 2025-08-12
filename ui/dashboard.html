@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <style>
+        body {margin:0; font-family: Arial, sans-serif;}
+        #topbar {background:#333;color:#fff;padding:10px;display:flex;justify-content:space-between;align-items:center;}
+        #sidebar {background:#f4f4f4; width:200px; height:100vh; float:left; padding-top:20px;}
+        #sidebar ul {list-style:none; padding:0;}
+        #sidebar li {padding:8px 16px;}
+        #sidebar a {text-decoration:none; color:#333;}
+        #content {margin-left:200px; padding:20px;}
+    </style>
+</head>
+<body>
+    <div id="topbar">
+        <div>Hexcarb Dashboard</div>
+        <div>Role: {{ user.role }} | <a href="/logout" style="color:#fff;">Logout</a></div>
+    </div>
+    <div id="sidebar">
+        <ul>
+        {% for label, url in menu %}
+            <li><a href="{{ url }}">{{ label }}</a></li>
+        {% endfor %}
+        </ul>
+    </div>
+    <div id="content">
+        <h1>Welcome, {{ user.username }}!</h1>
+        <p>This is a placeholder dashboard.</p>
+    </div>
+</body>
+</html>
