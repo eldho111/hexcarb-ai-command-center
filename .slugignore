@@ -24,3 +24,9 @@ env/
 
 # Heroku Git
 .git/
+
+tests/
+.github/
+docs/
+*.md
+
