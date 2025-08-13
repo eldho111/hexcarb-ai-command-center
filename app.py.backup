@@ -1,0 +1,48 @@
+import os
+import streamlit as st
+from modules import auth
+
+st.set_page_config(page_title=os.getenv("APP_NAME","HEXCARB AI Engine"), page_icon="🧠", layout="wide")
+with st.sidebar:
+    logged_in = auth.render_login_sidebar()
+if not logged_in:
+    st.title("HEXCARB AI Engine")
+    st.caption("Please sign in from the left sidebar to continue.")
+    st.stop()
+import streamlit as st
+import importlib
+
+st.set_page_config(page_title="Hexcarb AI Command Center", layout="wide")
+
+st.sidebar.markdown(
+    "<h2 style='text-align:center; margin:6px 0 14px 0;'>⚡ Hexcarb AI</h2>",
+    unsafe_allow_html=True
+)
+
+menu_items = ["R&D", "Chat", "Procurement", "Accounting", "HR", "Settings"]
+if "hc_menu" not in st.session_state:
+    st.session_state.hc_menu = menu_items[0]
+
+selected = st.sidebar.radio("Navigate", menu_items, index=menu_items.index(st.session_state.hc_menu), key="hc_sidebar_radio")
+st.session_state.hc_menu = selected
+
+st.sidebar.markdown("<hr>", unsafe_allow_html=True)
+
+module_map = {
+    "R&D": "modules.rd_tab",
+    "Chat": "modules.chat_tab",
+    "Procurement": "modules.proc_tab",
+    "Accounting": "modules.accounting_tab",
+    "HR": "modules.hr_tab",
+    "Settings": "modules.settings_tab",
+}
+
+path = module_map.get(selected)
+try:
+    mod = importlib.import_module(path)
+    if hasattr(mod, "render") and callable(mod.render):
+        mod.render()
+    else:
+        st.info(f"Module {path} loaded but has no render() function.")
+except Exception as e:
+    st.error(f"Failed to load module {path}: {e}")

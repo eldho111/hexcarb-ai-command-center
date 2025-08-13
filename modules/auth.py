@@ -1,37 +1,16 @@
-ab_titles = [
-    ("rd_tab", "R&D"),
-]
-   ("chat_tab", "Chat"),
-    ("rd_tab", "R&D"),
-    ("proc_tab", "Procurement"),
-    ("accounting_tab", "Accounting"),
-    ("hr_tab", "HR"),
-    ("settings_tab", "Settings")ab_titles = [
-    ("chat_tab", "Chat"),
-    ("rd_tab", "R&D"),
-    ("proc_tab", "Procurement"),
-    ("accounting_tab", "Accounting"),
-    ("hr_tab", "HR"),
-    ("settings_tab", "Settings"),
-]
-
 from __future__ import annotations
 import os
 import json
 import base64
-import importlib
 from typing import Any, Dict, Optional
 
 import requests
 import streamlit as st
 
 
-# -------------------------------
-# Inline auth + API helper utils
-# -------------------------------
 def get_api_base_url() -> str:
     """
-    Resolve API_BASE_URL from env or st.secrets.
+    Resolve API_BASE_URL from environment or st.secrets.
     Default: http://127.0.0.1:8000 (local dev)
     """
     url = os.getenv("API_BASE_URL")
@@ -44,7 +23,10 @@ def get_api_base_url() -> str:
 
 
 def _decode_jwt_noverify(token: str) -> Dict[str, Any]:
-    """Decode JWT payload without verification (UI only)."""
+    """
+    Decode JWT header & payload without verification.
+    UI-only convenience. Security is enforced by the API.
+    """
     try:
         parts = token.split(".")
         if len(parts) < 2:
@@ -56,7 +38,53 @@ def _decode_jwt_noverify(token: str) -> Dict[str, Any]:
         return {}
 
 
+def render_login_sidebar() -> bool:
+    """
+    Renders a login form in the sidebar. Returns True if logged in.
+    Stores: st.session_state.token, st.session_state.role
+    """
+    st.header("Access")
+
+    token = st.session_state.get("token")
+    if not token:
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Sign in")
+
+        if submitted:
+            api_base = get_api_base_url()
+            try:
+                r = requests.post(
+                    f"{api_base}/login",
+                    data={"username": username, "password": password},
+                    timeout=15,
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    st.session_state.token = data.get("access_token")
+                    st.session_state.role = data.get("role", "user")
+                    st.success("Signed in.")
+                    st.rerun()
+                else:
+                    st.error("Login failed. Check credentials.")
+            except requests.RequestException as e:
+                st.error(f"Login endpoint unavailable: {e}")
+        return False
+
+    # Already logged in
+    claims = _decode_jwt_noverify(token)
+    role = st.session_state.get("role") or claims.get("role") or "user"
+    user = claims.get("sub", "unknown")
+    st.write(f"**User:** {user}  \n**Role:** {role}")
+    if st.button("Sign out"):
+        st.session_state.clear()
+        st.rerun()
+    return True
+
+
 def api_headers() -> Dict[str, str]:
+    """Authorization header for API calls."""
     token = st.session_state.get("token")
     return {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -69,7 +97,7 @@ def _full_url(path: str) -> str:
 
 
 def api_get(path: str, params: Optional[Dict[str, Any]] = None, timeout: int = 20) -> Optional[Any]:
-    """GET helper with auth + nice errors."""
+    """GET helper that includes auth header and shows nice errors in UI."""
     try:
         r = requests.get(_full_url(path), headers=api_headers(), params=params, timeout=timeout)
         if r.status_code == 401:
@@ -87,7 +115,7 @@ def api_post(path: str,
              data: Optional[Dict[str, Any]] = None,
              files: Optional[Dict[str, Any]] = None,
              timeout: int = 30) -> Optional[Any]:
-    """POST helper with auth + nice errors."""
+    """POST helper that includes auth header and shows nice errors in UI."""
     try:
         r = requests.post(_full_url(path), headers=api_headers(), data=data, files=files, timeout=timeout)
         if r.status_code == 401:
@@ -95,74 +123,31 @@ def api_post(path: str,
             st.session_state.clear()
             st.rerun()
         r.raise_for_status()
-        return r.json()
-    except requests.RequestException as e:
-        st.info(f"⚠️ Backend not reachable at {path}. Error: {e}")
-        return None
 
+cat > app_auth.py <<'PYCODE'
+from __future__ import annotations
+import os
+import importlib
+import streamlit as st
 
-def render_login_sidebar() -> bool:
-    """
-    Sidebar login; returns True if logged-in.
-    Stores: st.session_state.token, st.session_state.role
-    """
-    st.header("Access")
+from modules import auth  # our auth helpers
 
-    token = st.session_state.get("token")
-    if not token:
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Sign in")
-
-        if submitted:
-            try:
-                r = requests.post(
-                    _full_url("/login"),
-                    data={"username": username, "password": password},
-                    timeout=15,
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    st.session_state.token = data.get("access_token")
-                    st.session_state.role = data.get("role", "user")
-                    st.success("Signed in.")
-                    st.rerun()
-                else:
-                    st.error("Login failed. Check credentials.")
-            except requests.RequestException as e:
-                st.error(f"Login endpoint unavailable: {e}")
-        return False
-
-    # already logged in
-    claims = _decode_jwt_noverify(token)
-    role = st.session_state.get("role") or claims.get("role") or "user"
-    user = claims.get("sub", "unknown")
-    st.write(f"**User:** {user}  \n**Role:** {role}")
-    if st.button("Sign out"):
-        st.session_state.clear()
-        st.rerun()
-    return True
-
-
-# -------------------------------
-# App shell
-# -------------------------------
 APP_NAME = os.getenv("APP_NAME", "HEXCARB AI Engine")
+
 st.set_page_config(page_title=APP_NAME, page_icon="🧠", layout="wide")
 st.markdown(f"<h1 style='margin-bottom:0'>{APP_NAME}</h1>", unsafe_allow_html=True)
 st.caption("Login required. After sign-in, your existing tabs will be available below.")
 
 # Sidebar login
 with st.sidebar:
-    logged_in = render_login_sidebar()
+    logged_in = auth.render_login_sidebar()
 
 if not logged_in:
     st.info("Please sign in from the left sidebar to continue.")
     st.stop()
 
 # KPI pulse (proves API auth works)
-kpis = api_get("/kpis") or {}
+kpis = auth.api_get("/kpis") or {}
 with st.container():
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Experiments (7d)", kpis.get("experiments_this_week", 0))
@@ -172,7 +157,6 @@ with st.container():
 
 st.divider()
 
-# helper to render your existing module tabs safely
 def safe_render(module_name: str, nice_title: str):
     """Import modules.<name> and call render()/main() if available."""
     try:
@@ -185,12 +169,10 @@ def safe_render(module_name: str, nice_title: str):
         try:
             render_fn()
         except TypeError:
-            # if your module expects parameters, adapt here
             render_fn()
     else:
         st.info(f"`{module_name}` has no `render()` or `main()` function to call.")
 
-# tab order to match your repo
 tab_titles = [
     ("chat_tab", "Chat"),
     ("rd_tab", "R&D"),
