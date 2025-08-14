@@ -1,0 +1,57 @@
+name: Build & Deploy API (Cloud Run)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'main.py'
+      - 'Dockerfile.api'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-api.yml'
+
+jobs:
+  deploy:
+    name: Build & Deploy hexcarb-api
+    runs-on: ubuntu-latest
+    concurrency:
+      group: api-deploy
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Cloud Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+
+      - name: Configure gcloud defaults
+        run: |
+          gcloud config set project "${{ env.GCP_PROJECT_ID }}"
+          gcloud config set run/platform managed
+          gcloud config set run/region "${{ env.GCP_RUN_REGION }}"
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+          GCP_RUN_REGION: ${{ vars.GCP_RUN_REGION || 'asia-southeast1' }}
+
+      - name: Build (Cloud Build) - API
+        run: |
+          cp -f Dockerfile.api Dockerfile
+          gcloud builds submit --tag "gcr.io/${{ env.GCP_PROJECT_ID }}/hexcarb-api" .
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy to Cloud Run - API
+        run: |
+          gcloud run deploy hexcarb-api \
+            --image "gcr.io/${{ env.GCP_PROJECT_ID }}/hexcarb-api" \
+            --allow-unauthenticated
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
