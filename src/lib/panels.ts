@@ -81,6 +81,7 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("sources", "List Sources", "GET", "/sources"),
       qc("memory_stats", "Memory Stats", "GET", "/memory/stats"),
+      qc("index_status", "Index Status", "GET", "/experiments/index_status"),
       qc(
         "ingest_path",
         "Ingest Path",
@@ -88,6 +89,14 @@ export const PANELS: PanelDef[] = [
         "/ingest_path",
         { path: "/workspace/hexcarb_runtime/docs" },
         "Edit the path to a folder available on the engine host.",
+      ),
+      qc(
+        "ingest_files",
+        "Ingest Files",
+        "POST",
+        "/ingest_files",
+        { paths: [] },
+        "Provide a list of file paths on the engine host.",
       ),
     ]),
   },
@@ -146,7 +155,7 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("models", "Models", "GET", "/models"),
       qc("registry", "Model Registry", "GET", "/models/registry"),
-      qc("ops", "Ops Overview", "GET", "/ops/overview"),
+      qc("set_model", "Set Model", "POST", "/set_model", { model: "qwen2.5:14b" }),
     ]),
   },
   {
@@ -181,13 +190,13 @@ export const PANELS: PanelDef[] = [
         { text: "Describe an experiment with CNT catalyst ratios." },
       ),
       qc(
-        "bulk_from_sources",
-        "Bulk From Sources",
+        "extract_text",
+        "Extract Text",
         "POST",
-        "/experiments/bulk_from_sources",
-        { source_ids: [] },
-        "Provide source IDs to extract in bulk.",
+        "/experiments/extract_text",
+        { text: "Paste raw experiment notes here." },
       ),
+      qc("readiness", "Readiness", "GET", "/experiments/readiness"),
     ]),
   },
   {
@@ -247,16 +256,10 @@ export const PANELS: PanelDef[] = [
     description: "Model training, evaluations, and dataset exports.",
     section: "dataset_training",
     quickCalls: withCommonCalls([
-      qc("training_evals", "Evals", "GET", "/training/evals"),
-      qc("optimizations", "Optimizations", "GET", "/training/optimizations"),
-      qc(
-        "hf_export",
-        "HF Export",
-        "POST",
-        "/training/datasets/hf_export",
-        { dataset_id: "" },
-        "Provide a dataset_id from the registry.",
-      ),
+      qc("training_status", "Training Status", "GET", "/training/status"),
+      qc("training_readiness", "Training Readiness", "GET", "/training/readiness"),
+      qc("training_runs", "Training Runs", "GET", "/training/runs"),
+      qc("training_start", "Start Training", "POST", "/training/start", {}),
     ]),
   },
   {
@@ -267,14 +270,6 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("news_list", "News List", "GET", "/news/list"),
       qc("news_refresh", "Refresh", "POST", "/news/refresh", {}),
-      qc(
-        "news_item",
-        "News Item",
-        "GET",
-        "/news/ITEM_ID",
-        undefined,
-        "Replace ITEM_ID with a real item id.",
-      ),
     ]),
   },
   {
@@ -324,14 +319,6 @@ export const PANELS: PanelDef[] = [
         "/actions/submit",
         { action_type: "review", payload: {} },
       ),
-      qc(
-        "approve",
-        "Approve",
-        "POST",
-        "/actions/approvals/APPROVAL_ID/approve",
-        {},
-        "Replace APPROVAL_ID.",
-      ),
     ]),
   },
   {
@@ -347,14 +334,6 @@ export const PANELS: PanelDef[] = [
         "POST",
         "/notifications/create",
         { title: "Alert", message: "Experiment threshold exceeded." },
-      ),
-      qc(
-        "update",
-        "Update",
-        "POST",
-        "/notifications/NOTIFICATION_ID/update",
-        { status: "read" },
-        "Replace NOTIFICATION_ID.",
       ),
     ]),
   },
@@ -393,6 +372,7 @@ export const PANELS: PanelDef[] = [
     section: "diagnostics",
     quickCalls: withCommonCalls([
       qc("exec_health", "Execution Health", "GET", "/execution/health"),
+      qc("exec_tasks", "Execution Tasks", "GET", "/execution/tasks"),
       qc(
         "repair",
         "Repair",
@@ -477,7 +457,6 @@ export const PANELS: PanelDef[] = [
       qc("asset_items", "Asset Items", "GET", "/domains/assets/items"),
       qc(
         "asset_ingest",
-        "Asset Ingest",
         "POST",
         "/domains/assets/ingest",
         { items: [] },
@@ -493,7 +472,6 @@ export const PANELS: PanelDef[] = [
       qc("sales_items", "Sales Items", "GET", "/domains/sales/items"),
       qc(
         "sales_ingest",
-        "Sales Ingest",
         "POST",
         "/domains/sales/ingest",
         { items: [] },
@@ -532,7 +510,6 @@ export const PANELS: PanelDef[] = [
       qc("account_items", "Account Items", "GET", "/domains/accounts/items"),
       qc(
         "account_ingest",
-        "Accounts Ingest",
         "POST",
         "/domains/accounts/ingest",
         { items: [] },
