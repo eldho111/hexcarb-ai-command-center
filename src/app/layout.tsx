@@ -1,63 +1,35 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
+import { AppShell } from "./AppShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const hexSans = Space_Grotesk({
+  variable: "--font-hex-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const hexMono = JetBrains_Mono({
+  variable: "--font-hex-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "HexCarb Console",
-  description: "Web console for the HexCarb AI engine.",
+  title: "HexCarb Command Center",
+  description: "Premium console for HexCarb's AI engine.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-zinc-50 text-zinc-950 antialiased`}
-      >
-        <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/80 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3">
-            <Link href="/" className="text-sm font-semibold tracking-tight">
-              HexCarb Console
-            </Link>
-            <nav className="flex items-center gap-2 text-sm">
-              <Link
-                href="/panel/chat"
-                className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-              >
-                Chat
-              </Link>
-              <Link
-                href="/panel/system_status"
-                className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-              >
-                Status
-              </Link>
-            </nav>
-          </div>
-        </header>
-
-        <main>{children}</main>
-
-        <footer className="border-t border-zinc-200 bg-white">
-          <div className="mx-auto w-full max-w-6xl px-5 py-6 text-xs text-zinc-500">
-            Powered by Next.js + a server-side proxy to the HexCarb FastAPI gateway.
-          </div>
-        </footer>
+      <body className={`${hexSans.variable} ${hexMono.variable} antialiased`}>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

@@ -14,7 +14,6 @@ function normalizeEnginePath(raw: string): string {
   let path = (raw || "").trim();
   if (!path) return "/health";
 
-  // If the user pastes our proxy prefix, strip it.
   if (path.startsWith("/api/engine")) {
     path = path.slice("/api/engine".length);
   }
@@ -221,15 +220,14 @@ export function EngineRunner(props: {
   const streamPreview = streamItems.slice(-200);
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-200 px-5 py-4">
+    <section className="hex-card overflow-hidden">
+      <div className="border-b border-[var(--hex-border)] px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-zinc-900">
-              {title || "API Runner"}
-            </div>
-            <div className="text-xs text-zinc-500">
-              Calls the engine through the server-side proxy at /api/engine/*.
+            <div className="text-sm font-semibold">{title || "API Runner"}</div>
+            <div className="text-xs text-[var(--hex-ink-soft)]">
+              Calls the engine through the server-side proxy at
+              <span className="font-mono"> /api/engine/*</span>.
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -237,7 +235,7 @@ export function EngineRunner(props: {
               type="button"
               onClick={onRunManual}
               disabled={running}
-              className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="hex-button"
             >
               Send
             </button>
@@ -245,7 +243,7 @@ export function EngineRunner(props: {
               type="button"
               onClick={cancel}
               disabled={!running}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              className="hex-button-outline"
             >
               Cancel
             </button>
@@ -260,7 +258,7 @@ export function EngineRunner(props: {
                 type="button"
                 onClick={() => onQuickCall(call.id)}
                 disabled={running}
-                className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+                className="hex-pill hover:border-[var(--hex-border-strong)] disabled:opacity-50"
                 title={call.hint || call.path}
               >
                 {call.label}
@@ -270,13 +268,11 @@ export function EngineRunner(props: {
         ) : null}
       </div>
 
-      <div className="grid gap-4 p-5 md:grid-cols-12">
-        <div className="md:col-span-6">
-          <label className="block text-xs font-medium text-zinc-700">
-            Method
-          </label>
+      <div className="grid gap-4 p-5 lg:grid-cols-12">
+        <div className="lg:col-span-6">
+          <label className="hex-section-title">Method</label>
           <select
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+            className="hex-input mt-2 w-full"
             value={method}
             onChange={(e) => setMethod(e.target.value as HttpMethod)}
           >
@@ -288,10 +284,10 @@ export function EngineRunner(props: {
           </select>
         </div>
 
-        <div className="md:col-span-6">
-          <label className="block text-xs font-medium text-zinc-700">Path</label>
+        <div className="lg:col-span-6">
+          <label className="hex-section-title">Path</label>
           <input
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900"
+            className="hex-input mt-2 w-full font-mono"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="/status"
@@ -300,12 +296,10 @@ export function EngineRunner(props: {
         </div>
 
         {method !== "GET" && method !== "DELETE" ? (
-          <div className="md:col-span-12">
-            <label className="block text-xs font-medium text-zinc-700">
-              JSON Body
-            </label>
+          <div className="lg:col-span-12">
+            <label className="hex-section-title">JSON Body</label>
             <textarea
-              className="mt-1 min-h-[140px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900"
+              className="hex-input mt-2 min-h-[160px] w-full font-mono"
               value={bodyText}
               onChange={(e) => setBodyText(e.target.value)}
               spellCheck={false}
@@ -313,67 +307,61 @@ export function EngineRunner(props: {
           </div>
         ) : null}
 
-        <div className="md:col-span-12">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-xs text-zinc-600">
-              <span className="font-medium text-zinc-800">Status:</span>{" "}
-              {statusLine || "-"}
-            </div>
-            <div className="text-xs text-zinc-600">
-              <span className="font-medium text-zinc-800">Content-Type:</span>{" "}
-              {contentType || "-"}
-            </div>
-            {running ? (
-              <div className="text-xs font-medium text-zinc-900">Running…</div>
-            ) : null}
+        <div className="lg:col-span-12">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--hex-ink-muted)]">
+            <span className="hex-pill">Status: {statusLine || "-"}</span>
+            <span className="hex-pill">Content-Type: {contentType || "-"}</span>
           </div>
+        </div>
 
-          {error ? (
-            <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-              {error}
+        {error ? (
+          <div className="lg:col-span-12 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {error}
+          </div>
+        ) : null}
+
+        {streamItems.length > 0 ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">Streaming Output</div>
+            <div className="mt-2 max-h-[360px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-3 text-xs font-mono text-[var(--hex-ink-muted)]">
+              {streamPreview.map((item, idx) => {
+                if (item.kind === "bad_line") {
+                  return (
+                    <div key={idx} className="text-amber-700">
+                      bad_line: {item.line}
+                    </div>
+                  );
+                }
+                if (item.kind === "sse") {
+                  return (
+                    <div key={idx}>
+                      sse: {item.event.event || "message"} {item.event.data || ""}
+                    </div>
+                  );
+                }
+                return <div key={idx}>{prettyJson(item.item)}</div>;
+              })}
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {jsonOut !== null ? (
-            <pre className="mt-3 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
+        {jsonOut !== null ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">JSON Response</div>
+            <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-4 text-xs text-[var(--hex-ink-muted)]">
               {prettyJson(jsonOut)}
             </pre>
-          ) : null}
+          </div>
+        ) : null}
 
-          {textOut ? (
-            <pre className="mt-3 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
+        {jsonOut === null && textOut ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">Response</div>
+            <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-4 text-xs text-[var(--hex-ink-muted)]">
               {textOut}
             </pre>
-          ) : null}
-
-          {streamItems.length > 0 ? (
-            <div className="mt-3">
-              <div className="text-xs text-zinc-600">
-                Streaming items: {streamItems.length} (showing last {streamPreview.length})
-              </div>
-              <pre className="mt-2 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
-                {streamPreview
-                  .map((entry) => {
-                    if (entry.kind === "bad_line") {
-                      return `bad_line: ${entry.line}`;
-                    }
-                    if (entry.kind === "sse") {
-                      const payload = entry.parsed ?? entry.event.data;
-                      return `sse${entry.event.event ? `(${entry.event.event})` : ""}: ${prettyJson(payload)}`;
-                    }
-                    return `ndjson: ${prettyJson(entry.item)}`;
-                  })
-                  .join("\n")}
-              </pre>
-            </div>
-          ) : null}
-
-          {!jsonOut && !textOut && streamItems.length === 0 && !error ? (
-            <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-              Use Quick Calls, or enter a method/path/body and click Send.
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

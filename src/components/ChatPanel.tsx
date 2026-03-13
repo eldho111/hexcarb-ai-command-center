@@ -163,7 +163,9 @@ export function ChatPanel() {
                 ? obj.retrieval_count
                 : undefined,
             citation_count:
-              typeof obj?.citation_count === "number" ? obj.citation_count : undefined,
+              typeof obj?.citation_count === "number"
+                ? obj.citation_count
+                : undefined,
             warning: typeof obj?.warning === "string" ? obj.warning : null,
           });
           return;
@@ -174,7 +176,7 @@ export function ChatPanel() {
         }
       },
       () => {
-        // Ignore non-JSON lines
+        // Ignore non-JSON lines.
       },
       abort.signal,
     );
@@ -183,12 +185,12 @@ export function ChatPanel() {
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-200 px-5 py-4">
+    <section className="hex-card overflow-hidden">
+      <div className="border-b border-[var(--hex-border)] px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-zinc-900">Chat</div>
-            <div className="text-xs text-zinc-500">
+            <div className="text-sm font-semibold">Cited Chat</div>
+            <div className="text-xs text-[var(--hex-ink-soft)]">
               Streams NDJSON from <span className="font-mono">/chat_stream</span>.
             </div>
           </div>
@@ -197,7 +199,7 @@ export function ChatPanel() {
               type="button"
               onClick={send}
               disabled={running || !input.trim()}
-              className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="hex-button"
             >
               Send
             </button>
@@ -205,7 +207,7 @@ export function ChatPanel() {
               type="button"
               onClick={stop}
               disabled={!running}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              className="hex-button-outline"
             >
               Stop
             </button>
@@ -213,49 +215,37 @@ export function ChatPanel() {
         </div>
 
         {meta ? (
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-600">
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--hex-ink-soft)]">
             {meta.model ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-1">
-                model: <span className="font-mono">{meta.model}</span>
-              </span>
+              <span className="hex-pill">model: {meta.model}</span>
             ) : null}
             {meta.selected_provider ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-1">
-                provider: <span className="font-mono">{meta.selected_provider}</span>
-              </span>
+              <span className="hex-pill">provider: {meta.selected_provider}</span>
             ) : null}
             {typeof meta.latency_ms === "number" ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-1">
-                latency: <span className="font-mono">{meta.latency_ms}ms</span>
-              </span>
+              <span className="hex-pill">latency: {meta.latency_ms}ms</span>
             ) : null}
             {typeof meta.retrieval_count === "number" ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-1">
-                retrieval: <span className="font-mono">{meta.retrieval_count}</span>
-              </span>
+              <span className="hex-pill">retrieval: {meta.retrieval_count}</span>
             ) : null}
             {typeof meta.citation_count === "number" ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-1">
-                citations: <span className="font-mono">{meta.citation_count}</span>
-              </span>
+              <span className="hex-pill">citations: {meta.citation_count}</span>
             ) : null}
             {meta.warning ? (
-              <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-900">
-                warning: <span className="font-mono">{meta.warning}</span>
+              <span className="hex-pill border-amber-200 bg-amber-50 text-amber-900">
+                warning: {meta.warning}
               </span>
             ) : null}
           </div>
         ) : null}
 
         <div className="mt-4">
-          <label className="block text-xs font-medium text-zinc-700">
-            Message
-          </label>
+          <label className="hex-section-title">Message</label>
           <textarea
-            className="mt-1 min-h-[88px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+            className="hex-input mt-2 min-h-[88px] w-full"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question…"
+            placeholder="Ask a question about CNT experiments, literature, or status."
             spellCheck={false}
           />
         </div>
@@ -270,7 +260,7 @@ export function ChatPanel() {
       <div className="p-5">
         <div className="space-y-3">
           {messages.length === 0 ? (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+            <div className="rounded-xl border border-[var(--hex-border)] bg-[var(--hex-panel-2)] p-4 text-sm text-[var(--hex-ink-muted)]">
               Send a message to begin.
             </div>
           ) : null}
@@ -280,8 +270,8 @@ export function ChatPanel() {
               key={m.id}
               className={
                 m.role === "user"
-                  ? "ml-auto max-w-[860px] rounded-2xl bg-zinc-900 px-4 py-3 text-sm text-white"
-                  : "mr-auto max-w-[860px] rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900"
+                  ? "ml-auto max-w-[860px] rounded-2xl bg-[var(--hex-ink)] px-4 py-3 text-sm text-white"
+                  : "mr-auto max-w-[860px] rounded-2xl border border-[var(--hex-border)] bg-white px-4 py-3 text-sm text-[var(--hex-ink)]"
               }
             >
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide opacity-70">
@@ -293,9 +283,9 @@ export function ChatPanel() {
         </div>
 
         {citations.length > 0 ? (
-          <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-            <div className="text-xs font-semibold text-zinc-800">Citations</div>
-            <ul className="mt-2 list-disc pl-5 text-xs text-zinc-700">
+          <div className="mt-5 rounded-2xl border border-[var(--hex-border)] bg-[var(--hex-panel-2)] p-4">
+            <div className="text-xs font-semibold">Citations</div>
+            <ul className="mt-2 list-disc pl-5 text-xs text-[var(--hex-ink-muted)]">
               {citations.slice(0, 12).map((c, idx) => (
                 <li key={`${c}_${idx}`} className="break-all">
                   {c}
