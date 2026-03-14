@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEngineGet } from "@/lib/useEngine";
 import { StatusBadge } from "@/components/widgets/StatusBadge";
 import { ActionBar, type ActionDef } from "@/components/widgets/ActionBar";
