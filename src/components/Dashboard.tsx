@@ -31,7 +31,7 @@ export function Dashboard() {
     let cancelled = false;
     async function probe() {
       try {
-        const resp = await fetch("/api/engine/ready", { cache: "no-store" });
+        const resp = await fetch("/api/engine/health", { cache: "no-store" });
         if (cancelled) return;
         if (!resp.ok) {
           setEngine({ status: "down", detail: `HTTP ${resp.status}` });

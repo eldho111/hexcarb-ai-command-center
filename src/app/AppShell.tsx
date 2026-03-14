@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     async function checkEngine() {
       try {
-        const res = await fetch("/api/engine/ready", {
+        const res = await fetch("/api/engine/health", {
           signal: AbortSignal.timeout(8000),
         });
         if (!mounted) return;
