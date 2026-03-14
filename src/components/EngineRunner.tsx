@@ -5,6 +5,9 @@ import { useMemo, useRef, useState } from "react";
 import type { HttpMethod, QuickCall } from "@/lib/panels";
 import { streamNdjson, streamSse, type SseEvent } from "@/lib/stream";
 
+const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+const METHODS_WITH_BODY: HttpMethod[] = ["POST", "PUT", "PATCH"];
+
 type StreamItem =
   | { kind: "ndjson"; item: unknown }
   | { kind: "sse"; event: SseEvent; parsed?: unknown }
@@ -13,12 +16,9 @@ type StreamItem =
 function normalizeEnginePath(raw: string): string {
   let path = (raw || "").trim();
   if (!path) return "/health";
-
-  // If the user pastes our proxy prefix, strip it.
   if (path.startsWith("/api/engine")) {
     path = path.slice("/api/engine".length);
   }
-
   if (!path.startsWith("/")) path = "/" + path;
   return path;
 }
@@ -29,6 +29,78 @@ function prettyJson(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/* ── Simple JSON syntax coloring ──────────────────────────────── */
+function colorizeJson(json: string): React.ReactNode[] {
+  const lines = json.split("\n");
+  return lines.map((line, i) => {
+    const parts: React.ReactNode[] = [];
+    let rest = line;
+    let key = 0;
+
+    // Match keys
+    const keyRe = /("(?:[^"\\]|\\.)*")\s*:/g;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = keyRe.exec(rest)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(
+          <span key={key++}>{rest.slice(lastIdx, match.index)}</span>,
+        );
+      }
+      parts.push(
+        <span key={key++} style={{ color: "#7ab8db" }}>
+          {match[1]}
+        </span>,
+      );
+      parts.push(<span key={key++}>:</span>);
+      lastIdx = match.index + match[0].length;
+    }
+
+    const remainder = rest.slice(lastIdx);
+    // Colorize values in the remainder
+    const valParts = remainder.split(
+      /("(?:[^"\\]|\\.)*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    );
+    for (const part of valParts) {
+      if (/^"/.test(part)) {
+        parts.push(
+          <span key={key++} style={{ color: "var(--hc-green)" }}>
+            {part}
+          </span>,
+        );
+      } else if (/^(true|false)$/.test(part)) {
+        parts.push(
+          <span key={key++} style={{ color: "var(--hc-accent)" }}>
+            {part}
+          </span>,
+        );
+      } else if (/^null$/.test(part)) {
+        parts.push(
+          <span key={key++} style={{ color: "var(--hc-text-muted)" }}>
+            {part}
+          </span>,
+        );
+      } else if (/^-?\d/.test(part)) {
+        parts.push(
+          <span key={key++} style={{ color: "#c9a06c" }}>
+            {part}
+          </span>,
+        );
+      } else {
+        parts.push(<span key={key++}>{part}</span>);
+      }
+    }
+
+    return (
+      <span key={i}>
+        {parts}
+        {i < lines.length - 1 ? "\n" : ""}
+      </span>
+    );
+  });
 }
 
 export function EngineRunner(props: {
@@ -47,16 +119,16 @@ export function EngineRunner(props: {
   } = props;
 
   const [method, setMethod] = useState<HttpMethod>(initialMethod);
-  const [path, setPath] = useState<string>(initialPath);
-  const [bodyText, setBodyText] = useState<string>(initialBody);
+  const [path, setPath] = useState(initialPath);
+  const [bodyText, setBodyText] = useState(initialBody);
 
   const [running, setRunning] = useState(false);
-  const [statusLine, setStatusLine] = useState<string>("");
-  const [contentType, setContentType] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  const [statusLine, setStatusLine] = useState("");
+  const [contentType, setContentType] = useState("");
+  const [error, setError] = useState("");
 
   const [jsonOut, setJsonOut] = useState<unknown>(null);
-  const [textOut, setTextOut] = useState<string>("");
+  const [textOut, setTextOut] = useState("");
   const [streamItems, setStreamItems] = useState<StreamItem[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -91,11 +163,9 @@ export function EngineRunner(props: {
     let body: string | undefined;
     const headers = new Headers();
 
-    if (reqMethod !== "GET" && reqMethod !== "DELETE") {
-      if (call.body !== undefined) {
-        body = JSON.stringify(call.body);
-        headers.set("content-type", "application/json; charset=utf-8");
-      }
+    if (METHODS_WITH_BODY.includes(reqMethod) && call.body !== undefined) {
+      body = JSON.stringify(call.body);
+      headers.set("content-type", "application/json; charset=utf-8");
     }
 
     let resp: Response;
@@ -152,7 +222,10 @@ export function EngineRunner(props: {
               parsed = undefined;
             }
           }
-          setStreamItems((prev) => [...prev, { kind: "sse", event: evt, parsed }]);
+          setStreamItems((prev) => [
+            ...prev,
+            { kind: "sse", event: evt, parsed },
+          ]);
         },
         abort.signal,
       );
@@ -189,12 +262,11 @@ export function EngineRunner(props: {
 
   function onRunManual() {
     setError("");
-
     const reqMethod = method;
     const normalized = normalizeEnginePath(path);
 
     let parsedBody: unknown | undefined;
-    if (reqMethod !== "GET" && reqMethod !== "DELETE") {
+    if (METHODS_WITH_BODY.includes(reqMethod)) {
       const trimmed = bodyText.trim();
       if (trimmed) {
         try {
@@ -219,16 +291,26 @@ export function EngineRunner(props: {
   }
 
   const streamPreview = streamItems.slice(-200);
+  const showBody = METHODS_WITH_BODY.includes(method);
+  const hasOutput =
+    jsonOut !== null || textOut !== "" || streamItems.length > 0 || error !== "";
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-200 px-5 py-4">
+    <section>
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div
+        className="px-5 py-4"
+        style={{ borderBottom: "1px solid var(--hc-border)" }}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-zinc-900">
+            <div
+              className="text-sm font-semibold"
+              style={{ color: "var(--hc-heading)" }}
+            >
               {title || "API Runner"}
             </div>
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
               Calls the engine through the server-side proxy at /api/engine/*.
             </div>
           </div>
@@ -237,22 +319,33 @@ export function EngineRunner(props: {
               type="button"
               onClick={onRunManual}
               disabled={running}
-              className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="hc-btn hc-btn-primary"
+              style={{ opacity: running ? 0.5 : 1 }}
             >
-              Send
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="currentColor"
+              >
+                <path d="M2 1L11 6L2 11V1Z" />
+              </svg>
+              Run
             </button>
             <button
               type="button"
               onClick={cancel}
               disabled={!running}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50"
+              className="hc-btn hc-btn-ghost"
+              style={{ opacity: !running ? 0.4 : 1 }}
             >
               Cancel
             </button>
           </div>
         </div>
 
-        {quickCalls.length > 0 ? (
+        {/* ── Quick Calls ───────────────────────────────────────── */}
+        {quickCalls.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {quickCalls.map((call) => (
               <button
@@ -260,38 +353,91 @@ export function EngineRunner(props: {
                 type="button"
                 onClick={() => onQuickCall(call.id)}
                 disabled={running}
-                className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 disabled:opacity-50"
+                className="hc-btn hc-btn-ghost"
+                style={{
+                  fontSize: "0.72rem",
+                  padding: "0.4rem 0.75rem",
+                  borderRadius: 999,
+                  opacity: running ? 0.5 : 1,
+                }}
                 title={call.hint || call.path}
               >
+                <span
+                  className="mr-1 text-[9px] font-bold"
+                  style={{
+                    color:
+                      call.method === "GET"
+                        ? "var(--hc-green)"
+                        : call.method === "POST"
+                          ? "var(--hc-accent)"
+                          : "var(--hc-active)",
+                  }}
+                >
+                  {call.method}
+                </span>
                 {call.label}
               </button>
             ))}
           </div>
-        ) : null}
+        )}
       </div>
 
+      {/* ── Form ────────────────────────────────────────────────── */}
       <div className="grid gap-4 p-5 md:grid-cols-12">
-        <div className="md:col-span-6">
-          <label className="block text-xs font-medium text-zinc-700">
+        {/* Method pill group */}
+        <div className="md:col-span-4">
+          <label
+            className="mb-1.5 block text-xs font-medium"
+            style={{ color: "var(--hc-text-muted)" }}
+          >
             Method
           </label>
-          <select
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
-            value={method}
-            onChange={(e) => setMethod(e.target.value as HttpMethod)}
+          <div
+            className="inline-flex overflow-hidden"
+            style={{
+              border: "1px solid var(--hc-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
           >
-            <option value="GET">GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
-            <option value="PATCH">PATCH</option>
-            <option value="DELETE">DELETE</option>
-          </select>
+            {METHODS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className="px-3 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  background:
+                    m === method ? "var(--hc-primary)" : "var(--hc-bg)",
+                  color: m === method ? "#fff" : "var(--hc-text-muted)",
+                  borderRight:
+                    m !== "DELETE"
+                      ? "1px solid var(--hc-border)"
+                      : "none",
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="md:col-span-6">
-          <label className="block text-xs font-medium text-zinc-700">Path</label>
+        {/* Path */}
+        <div className="md:col-span-8">
+          <label
+            className="mb-1.5 block text-xs font-medium"
+            style={{ color: "var(--hc-text-muted)" }}
+          >
+            Path
+          </label>
           <input
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900"
+            className="w-full font-mono text-sm"
+            style={{
+              background: "var(--hc-bg)",
+              border: "1px solid var(--hc-border)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--hc-text)",
+              padding: "0.5rem 0.75rem",
+            }}
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="/status"
@@ -299,61 +445,133 @@ export function EngineRunner(props: {
           />
         </div>
 
-        {method !== "GET" && method !== "DELETE" ? (
+        {/* Body */}
+        {showBody && (
           <div className="md:col-span-12">
-            <label className="block text-xs font-medium text-zinc-700">
+            <label
+              className="mb-1.5 block text-xs font-medium"
+              style={{ color: "var(--hc-text-muted)" }}
+            >
               JSON Body
             </label>
             <textarea
-              className="mt-1 min-h-[140px] w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900"
+              className="w-full font-mono text-sm"
+              style={{
+                background: "var(--hc-bg)",
+                border: "1px solid var(--hc-border)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--hc-text)",
+                padding: "0.5rem 0.75rem",
+                minHeight: 140,
+                resize: "vertical",
+              }}
               value={bodyText}
               onChange={(e) => setBodyText(e.target.value)}
               spellCheck={false}
             />
           </div>
-        ) : null}
+        )}
 
+        {/* ── Response Area ─────────────────────────────────────── */}
         <div className="md:col-span-12">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-xs text-zinc-600">
-              <span className="font-medium text-zinc-800">Status:</span>{" "}
-              {statusLine || "-"}
+          {/* Status bar */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
+              <span
+                className="font-medium"
+                style={{ color: "var(--hc-text)" }}
+              >
+                Status:
+              </span>{" "}
+              {statusLine || "\u2014"}
             </div>
-            <div className="text-xs text-zinc-600">
-              <span className="font-medium text-zinc-800">Content-Type:</span>{" "}
-              {contentType || "-"}
+            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
+              <span
+                className="font-medium"
+                style={{ color: "var(--hc-text)" }}
+              >
+                Content-Type:
+              </span>{" "}
+              <span className="font-mono">{contentType || "\u2014"}</span>
             </div>
-            {running ? (
-              <div className="text-xs font-medium text-zinc-900">Running…</div>
-            ) : null}
+            {running && (
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                  style={{ background: "var(--hc-green)" }}
+                />
+                <span
+                  className="text-xs font-medium"
+                  style={{ color: "var(--hc-green)" }}
+                >
+                  Running
+                </span>
+              </div>
+            )}
           </div>
 
-          {error ? (
-            <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          {/* Error */}
+          {error && (
+            <div
+              className="mt-3 rounded-lg p-3 text-sm"
+              style={{
+                background: "rgba(245,100,84,0.08)",
+                border: "1px solid var(--hc-active)",
+                color: "var(--hc-active)",
+              }}
+            >
               {error}
             </div>
-          ) : null}
+          )}
 
-          {jsonOut !== null ? (
-            <pre className="mt-3 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
-              {prettyJson(jsonOut)}
+          {/* JSON output */}
+          {jsonOut !== null && (
+            <pre
+              className="mt-3 overflow-auto p-4 text-xs"
+              style={{
+                background: "var(--hc-primary)",
+                color: "#d4dce6",
+                borderRadius: "var(--radius-sm)",
+                maxHeight: 560,
+              }}
+            >
+              {colorizeJson(prettyJson(jsonOut))}
             </pre>
-          ) : null}
+          )}
 
-          {textOut ? (
-            <pre className="mt-3 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
+          {/* Text output */}
+          {textOut && (
+            <pre
+              className="mt-3 overflow-auto p-4 text-xs"
+              style={{
+                background: "var(--hc-primary)",
+                color: "#d4dce6",
+                borderRadius: "var(--radius-sm)",
+                maxHeight: 560,
+              }}
+            >
               {textOut}
             </pre>
-          ) : null}
+          )}
 
-          {streamItems.length > 0 ? (
+          {/* Stream output */}
+          {streamItems.length > 0 && (
             <div className="mt-3">
-              <div className="text-xs text-zinc-600">
-                Streaming items: {streamItems.length} (showing last {streamPreview.length})
+              <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
+                Streaming items: {streamItems.length} (showing last{" "}
+                {streamPreview.length})
               </div>
-              <pre className="mt-2 max-h-[560px] overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
+              <pre
+                className="mt-2 overflow-auto p-4 text-xs"
+                style={{
+                  background: "var(--hc-primary)",
+                  color: "#d4dce6",
+                  borderRadius: "var(--radius-sm)",
+                  maxHeight: 560,
+                }}
+              >
                 {streamPreview
-                  .map((entry) => {
+                  .map((entry, idx) => {
                     if (entry.kind === "bad_line") {
                       return `bad_line: ${entry.line}`;
                     }
@@ -366,13 +584,22 @@ export function EngineRunner(props: {
                   .join("\n")}
               </pre>
             </div>
-          ) : null}
+          )}
 
-          {!jsonOut && !textOut && streamItems.length === 0 && !error ? (
-            <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-              Use Quick Calls, or enter a method/path/body and click Send.
+          {/* Empty state */}
+          {!hasOutput && (
+            <div
+              className="mt-3 p-4 text-center text-sm"
+              style={{
+                background: "var(--hc-bg-soft)",
+                border: "1px solid var(--hc-border)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--hc-text-muted)",
+              }}
+            >
+              Use Quick Calls, or enter a method/path/body and click Run.
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </section>

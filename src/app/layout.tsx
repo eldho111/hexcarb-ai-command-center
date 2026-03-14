@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
-
+import { Sora, Public_Sans } from "next/font/google";
 import "./globals.css";
+import AppShell from "./AppShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sora = Sora({
+  variable: "--font-heading",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const publicSans = Public_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "HexCarb Console",
-  description: "Web console for the HexCarb AI engine.",
+  title: "HexCarb AI Console",
+  description: "Command center for the HexCarb AI engine",
 };
 
 export default function RootLayout({
@@ -25,39 +28,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-zinc-50 text-zinc-950 antialiased`}
+        className={`${sora.variable} ${publicSans.variable} min-h-dvh antialiased`}
+        style={{
+          fontFamily: "var(--font-body), system-ui, sans-serif",
+          background: "var(--hc-page-bg)",
+          color: "var(--hc-text)",
+        }}
       >
-        <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/80 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3">
-            <Link href="/" className="text-sm font-semibold tracking-tight">
-              HexCarb Console
-            </Link>
-            <nav className="flex items-center gap-2 text-sm">
-              <Link
-                href="/panel/chat"
-                className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-              >
-                Chat
-              </Link>
-              <Link
-                href="/panel/system_status"
-                className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-              >
-                Status
-              </Link>
-            </nav>
-          </div>
-        </header>
-
-        <main>{children}</main>
-
-        <footer className="border-t border-zinc-200 bg-white">
-          <div className="mx-auto w-full max-w-6xl px-5 py-6 text-xs text-zinc-500">
-            Powered by Next.js + a server-side proxy to the HexCarb FastAPI gateway.
-          </div>
-        </footer>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

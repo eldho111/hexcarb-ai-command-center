@@ -49,7 +49,7 @@ export const SECTION_LABELS: Record<PanelSection, string> = {
   chat: "Chat",
   diagnostics: "Diagnostics",
   experiments: "Experiments",
-  dataset_training: "Dataset / Training",
+  dataset_training: "Training & Data",
   admin: "Admin",
 };
 
@@ -73,6 +73,9 @@ function withCommonCalls(calls: QuickCall[]): QuickCall[] {
 }
 
 export const PANELS: PanelDef[] = [
+  /* ════════════════════════════════════════════════════════════
+     SOURCES
+     ════════════════════════════════════════════════════════════ */
   {
     id: "doc_ingest",
     label: "Ingest Sources",
@@ -86,8 +89,28 @@ export const PANELS: PanelDef[] = [
         "GET",
         "/experiments/index_status",
       ),
+      qc(
+        "ingest_files",
+        "Ingest Files",
+        "POST",
+        "/ingest_files",
+        { files: [] },
+        "Provide file paths or multipart uploads to ingest.",
+      ),
+      qc(
+        "ingest_path",
+        "Ingest Path",
+        "POST",
+        "/ingest_path",
+        { path: "/data/papers" },
+        "Ingest all documents under a filesystem path.",
+      ),
     ]),
   },
+
+  /* ════════════════════════════════════════════════════════════
+     CHAT
+     ════════════════════════════════════════════════════════════ */
   {
     id: "chat",
     label: "Cited Chat",
@@ -100,6 +123,10 @@ export const PANELS: PanelDef[] = [
       }),
     ]),
   },
+
+  /* ════════════════════════════════════════════════════════════
+     DIAGNOSTICS
+     ════════════════════════════════════════════════════════════ */
   {
     id: "system_status",
     label: "System Status",
@@ -109,6 +136,7 @@ export const PANELS: PanelDef[] = [
       qc("status", "Status", "GET", "/status"),
       qc("ops_overview", "Ops Overview", "GET", "/ops/overview"),
       qc("engine_health", "Engine Health", "GET", "/engine/health"),
+      qc("state", "State", "GET", "/state"),
     ]),
   },
   {
@@ -143,8 +171,45 @@ export const PANELS: PanelDef[] = [
         undefined,
         "Includes installed models and runtime profile.",
       ),
+      qc("sources", "Sources", "GET", "/sources"),
     ]),
   },
+  {
+    id: "cognition",
+    label: "Cognition",
+    description: "Staleness, attention, and ranking diagnostics.",
+    section: "diagnostics",
+    quickCalls: withCommonCalls([
+      qc(
+        "staleness",
+        "Staleness Check",
+        "POST",
+        "/cognition/staleness",
+        {},
+        "Check data staleness across knowledge domains.",
+      ),
+      qc(
+        "attention",
+        "Attention Map",
+        "POST",
+        "/cognition/attention",
+        {},
+        "Compute attention distribution over indexed sources.",
+      ),
+      qc(
+        "rank",
+        "Rank",
+        "POST",
+        "/cognition/rank",
+        {},
+        "Rank sources by relevance and recency.",
+      ),
+    ]),
+  },
+
+  /* ════════════════════════════════════════════════════════════
+     EXPERIMENTS
+     ════════════════════════════════════════════════════════════ */
   {
     id: "experiment_drafts",
     label: "Draft Queue",
@@ -157,6 +222,14 @@ export const PANELS: PanelDef[] = [
         "Canonical Experiments",
         "GET",
         "/experiments/canonical",
+      ),
+      qc(
+        "create_draft",
+        "Create Draft",
+        "POST",
+        "/experiments/drafts",
+        { title: "New experiment draft", description: "" },
+        "Create a new experiment draft. Edit body fields as needed.",
       ),
     ]),
   },
@@ -181,6 +254,22 @@ export const PANELS: PanelDef[] = [
           text: "Paste a paragraph describing an experiment here.",
         },
         "Runs the experiment extractor. Edit the body as needed.",
+      ),
+      qc(
+        "ingest_experiment",
+        "Ingest Experiment",
+        "POST",
+        "/experiments/ingest",
+        { experiment: {} },
+        "Ingest a structured experiment record.",
+      ),
+      qc(
+        "validate_experiment",
+        "Validate Experiment",
+        "POST",
+        "/experiments/validate",
+        { experiment: {} },
+        "Validate an experiment record against the schema.",
       ),
     ]),
   },
@@ -234,8 +323,53 @@ export const PANELS: PanelDef[] = [
         {},
         "Triggers a run; use with care.",
       ),
+      qc(
+        "scout_ingest",
+        "Scout Ingest",
+        "POST",
+        "/scout/ingest",
+        { urls: [] },
+        "Ingest specific URLs or references into scout index.",
+      ),
     ]),
   },
+  {
+    id: "measurements",
+    label: "Measurements",
+    description: "Ingest and query experimental measurements.",
+    section: "experiments",
+    quickCalls: withCommonCalls([
+      qc("list_measurements", "List Measurements", "GET", "/measurements"),
+      qc(
+        "ingest_measurements",
+        "Ingest Measurements",
+        "POST",
+        "/measurements/ingest",
+        { measurements: [] },
+        "Upload measurement data. Provide array of measurement objects.",
+      ),
+    ]),
+  },
+  {
+    id: "reasoning",
+    label: "Reasoning",
+    description: "RAG-powered experiment reasoning queries.",
+    section: "experiments",
+    quickCalls: withCommonCalls([
+      qc(
+        "reason_experiments",
+        "Reason over Experiments",
+        "POST",
+        "/reasoning/experiments",
+        { query: "What CNT growth conditions maximize yield?" },
+        "RAG query over experiment corpus. Edit the query.",
+      ),
+    ]),
+  },
+
+  /* ════════════════════════════════════════════════════════════
+     TRAINING & DATA
+     ════════════════════════════════════════════════════════════ */
   {
     id: "training",
     label: "Dataset & Training",
@@ -248,6 +382,15 @@ export const PANELS: PanelDef[] = [
         "Training Readiness",
         "GET",
         "/training/readiness",
+      ),
+      qc("models_registry", "Models Registry", "GET", "/models/registry"),
+      qc(
+        "register_dataset",
+        "Register Dataset",
+        "POST",
+        "/model_registry/dataset",
+        { name: "", version: "1.0" },
+        "Register a new dataset in the model registry.",
       ),
     ]),
   },
@@ -283,8 +426,13 @@ export const PANELS: PanelDef[] = [
         {},
         "Triggers external fetch; may take a bit.",
       ),
+      qc("funding_decks", "Funding Decks", "GET", "/funding/decks"),
     ]),
   },
+
+  /* ════════════════════════════════════════════════════════════
+     ADMIN
+     ════════════════════════════════════════════════════════════ */
   {
     id: "system_state",
     label: "System Config",
@@ -303,6 +451,14 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("profile", "Profile", "GET", "/compliance/profile"),
       qc("tasks", "Tasks", "GET", "/compliance/tasks"),
+      qc(
+        "seed_tasks",
+        "Seed Tasks",
+        "POST",
+        "/compliance/tasks/seed",
+        {},
+        "Seed default compliance tasks. Use with care.",
+      ),
     ]),
   },
   {
@@ -312,6 +468,14 @@ export const PANELS: PanelDef[] = [
     section: "admin",
     quickCalls: withCommonCalls([
       qc("approvals", "Approvals", "GET", "/actions/approvals"),
+      qc(
+        "submit_action",
+        "Submit Action",
+        "POST",
+        "/actions/submit",
+        { action: "", payload: {} },
+        "Submit an action for approval. Edit body as needed.",
+      ),
     ]),
   },
   {
@@ -321,6 +485,14 @@ export const PANELS: PanelDef[] = [
     section: "admin",
     quickCalls: withCommonCalls([
       qc("list", "List", "GET", "/notifications/list"),
+      qc(
+        "create_notification",
+        "Create Notification",
+        "POST",
+        "/notifications/create",
+        { title: "", body: "", level: "info" },
+        "Create a new notification. Edit body fields.",
+      ),
     ]),
   },
   {
@@ -331,6 +503,14 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("inbox", "Inbox", "GET", "/messages/inbox"),
       qc("recipients", "Recipients", "GET", "/messages/recipients"),
+      qc(
+        "send_message",
+        "Send Message",
+        "POST",
+        "/messages/send",
+        { to: "", subject: "", body: "" },
+        "Send a message. Fill in recipient and content.",
+      ),
     ]),
   },
   {
@@ -373,6 +553,15 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("weekly", "Weekly Plan", "GET", "/execution/plan/weekly"),
       qc("goals", "Goals", "GET", "/execution/goals"),
+      qc("tasks", "Execution Tasks", "GET", "/execution/tasks"),
+      qc(
+        "risks",
+        "Report Risks",
+        "POST",
+        "/execution/risks",
+        { risks: [] },
+        "Submit execution risks. Provide array of risk objects.",
+      ),
     ]),
   },
   {
@@ -438,6 +627,17 @@ export const PANELS: PanelDef[] = [
     quickCalls: withCommonCalls([
       qc("domains", "Domains", "GET", "/domains"),
       qc("domain_sales", "Sales Domain", "GET", "/domains/sales"),
+      qc(
+        "generate_email",
+        "Generate Sales Email",
+        "POST",
+        "/sales/email/generate",
+        {
+          prompt: "Draft an outreach email about our CNT capabilities.",
+          tone: "direct",
+        },
+        "Generate a sales email from evidence.",
+      ),
     ]),
   },
   {
@@ -478,6 +678,96 @@ export const PANELS: PanelDef[] = [
     ]),
   },
   {
+    id: "quality",
+    label: "Quality",
+    description: "Quality tracking items and summary reports.",
+    section: "admin",
+    quickCalls: withCommonCalls([
+      qc("quality_items", "Quality Items", "GET", "/quality/items"),
+      qc("quality_summary", "Quality Summary", "GET", "/quality/summary"),
+      qc(
+        "create_quality_item",
+        "Create Quality Item",
+        "POST",
+        "/quality/items",
+        { title: "", category: "", severity: "medium" },
+        "Create a new quality tracking item.",
+      ),
+    ]),
+  },
+  {
+    id: "decisions",
+    label: "Decisions",
+    description: "Decision log and search.",
+    section: "admin",
+    quickCalls: withCommonCalls([
+      qc("list_decisions", "List Decisions", "GET", "/decisions"),
+      qc(
+        "create_decision",
+        "Create Decision",
+        "POST",
+        "/decisions",
+        { title: "", rationale: "", outcome: "" },
+        "Log a new decision. Edit body fields as needed.",
+      ),
+      qc(
+        "search_decisions",
+        "Search Decisions",
+        "POST",
+        "/decisions/search",
+        { query: "" },
+        "Semantic search over decision history.",
+      ),
+    ]),
+  },
+  {
+    id: "narratives",
+    label: "Narratives",
+    description: "Company narratives and generation.",
+    section: "admin",
+    quickCalls: withCommonCalls([
+      qc("list_narratives", "List Narratives", "GET", "/narratives"),
+      qc(
+        "generate_narrative",
+        "Generate Narrative",
+        "POST",
+        "/narratives/generate",
+        { context: "" },
+        "Generate a new narrative from current data.",
+      ),
+      qc(
+        "latest_company",
+        "Latest Company Narrative",
+        "GET",
+        "/narratives/latest/company",
+      ),
+    ]),
+  },
+  {
+    id: "planning",
+    label: "Planning",
+    description: "Strategic planning context and recomputation.",
+    section: "admin",
+    quickCalls: withCommonCalls([
+      qc(
+        "planning_context",
+        "Planning Context",
+        "POST",
+        "/planning/context",
+        {},
+        "Fetch or compute current planning context.",
+      ),
+      qc(
+        "recompute",
+        "Recompute Plan",
+        "POST",
+        "/planning/recompute",
+        {},
+        "Trigger full planning recomputation.",
+      ),
+    ]),
+  },
+  {
     id: "admin_scaffold",
     label: "Scaffold / Coming Soon",
     description: "Placeholder for future admin tools.",
@@ -491,15 +781,20 @@ export function getPanelById(panelId: string): PanelDef | null {
   return found || null;
 }
 
-export function panelsBySection(): Record<PanelSection, PanelDef[]> {
-  const out = {
-    sources: [] as PanelDef[],
-    chat: [] as PanelDef[],
-    diagnostics: [] as PanelDef[],
-    experiments: [] as PanelDef[],
-    dataset_training: [] as PanelDef[],
-    admin: [] as PanelDef[],
+export function getPanelsBySection(): Record<PanelSection, PanelDef[]> {
+  const out: Record<PanelSection, PanelDef[]> = {
+    sources: [],
+    chat: [],
+    diagnostics: [],
+    experiments: [],
+    dataset_training: [],
+    admin: [],
   };
   for (const panel of PANELS) out[panel.section].push(panel);
   return out;
+}
+
+/** @deprecated Use getPanelsBySection instead */
+export function panelsBySection(): Record<PanelSection, PanelDef[]> {
+  return getPanelsBySection();
 }
