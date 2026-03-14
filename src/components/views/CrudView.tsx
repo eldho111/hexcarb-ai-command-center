@@ -134,9 +134,9 @@ export function CrudView({ config }: { config: CrudConfig }) {
             Company Profile
           </div>
           <FormPanel
-            fields={profileFields.map((f) => ({
+            fields={profileFields.map((f): FormFieldDef => ({
               ...f,
-              defaultValue: profile?.[f.key] ?? f.defaultValue,
+              defaultValue: (profile?.[f.key] as FormFieldDef["defaultValue"]) ?? f.defaultValue,
             }))}
             onSubmit={handleProfileUpdate}
             submitLabel="Update Profile"
@@ -168,9 +168,9 @@ export function CrudView({ config }: { config: CrudConfig }) {
             Update: {String(selected[idField] ?? "")}
           </div>
           <FormPanel
-            fields={updateFields.map((f) => ({
+            fields={updateFields.map((f): FormFieldDef => ({
               ...f,
-              defaultValue: selected[f.key] ?? f.defaultValue,
+              defaultValue: (selected[f.key] as FormFieldDef["defaultValue"]) ?? f.defaultValue,
             }))}
             onSubmit={handleUpdate}
             submitLabel="Update"
