@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 import type { HttpMethod, QuickCall } from "@/lib/panels";
 import { streamNdjson, streamSse, type SseEvent } from "@/lib/stream";
@@ -33,74 +33,12 @@ function prettyJson(value: unknown): string {
 
 /* ── Simple JSON syntax coloring ──────────────────────────────── */
 function colorizeJson(json: string): React.ReactNode[] {
-  const lines = json.split("\n");
-  return lines.map((line, i) => {
-    const parts: React.ReactNode[] = [];
-    let rest = line;
-    let key = 0;
-
-    // Match keys
-    const keyRe = /("(?:[^"\\]|\\.)*")\s*:/g;
-    let lastIdx = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = keyRe.exec(rest)) !== null) {
-      if (match.index > lastIdx) {
-        parts.push(
-          <span key={key++}>{rest.slice(lastIdx, match.index)}</span>,
-        );
-      }
-      parts.push(
-        <span key={key++} style={{ color: "#7ab8db" }}>
-          {match[1]}
-        </span>,
-      );
-      parts.push(<span key={key++}>:</span>);
-      lastIdx = match.index + match[0].length;
-    }
-
-    const remainder = rest.slice(lastIdx);
-    // Colorize values in the remainder
-    const valParts = remainder.split(
-      /("(?:[^"\\]|\\.)*"|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    );
-    for (const part of valParts) {
-      if (/^"/.test(part)) {
-        parts.push(
-          <span key={key++} style={{ color: "var(--hc-green)" }}>
-            {part}
-          </span>,
-        );
-      } else if (/^(true|false)$/.test(part)) {
-        parts.push(
-          <span key={key++} style={{ color: "var(--hc-accent)" }}>
-            {part}
-          </span>,
-        );
-      } else if (/^null$/.test(part)) {
-        parts.push(
-          <span key={key++} style={{ color: "var(--hc-text-muted)" }}>
-            {part}
-          </span>,
-        );
-      } else if (/^-?\d/.test(part)) {
-        parts.push(
-          <span key={key++} style={{ color: "#c9a06c" }}>
-            {part}
-          </span>,
-        );
-      } else {
-        parts.push(<span key={key++}>{part}</span>);
-      }
-    }
-
-    return (
-      <span key={i}>
-        {parts}
-        {i < lines.length - 1 ? "\n" : ""}
-      </span>
-    );
-  });
+  return json.split("\n").map((line, i) => (
+    <span key={i}>
+      {line}
+      {i < json.split("\n").length - 1 ? "\n" : ""}
+    </span>
+  ));
 }
 
 export function EngineRunner(props: {
@@ -509,7 +447,6 @@ export function EngineRunner(props: {
               </div>
             )}
           </div>
-        </div>
 
           {/* Error */}
           {error && (

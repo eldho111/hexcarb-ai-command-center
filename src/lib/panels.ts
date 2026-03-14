@@ -627,12 +627,7 @@ export const PANELS: PanelDef[] = [
     section: "admin",
     quickCalls: withCommonCalls([
       qc("asset_items", "Asset Items", "GET", "/domains/assets/items"),
-      qc(
-        "asset_ingest",
-        "POST",
-        "/domains/assets/ingest",
-        { items: [] },
-      ),
+      qc("asset_ingest", "Ingest Assets", "POST", "/domains/assets/ingest", { items: [] }),
     ]),
   },
   {
@@ -686,12 +681,7 @@ export const PANELS: PanelDef[] = [
     section: "admin",
     quickCalls: withCommonCalls([
       qc("account_items", "Account Items", "GET", "/domains/accounts/items"),
-      qc(
-        "account_ingest",
-        "POST",
-        "/domains/accounts/ingest",
-        { items: [] },
-      ),
+      qc("account_ingest", "Ingest Accounts", "POST", "/domains/accounts/ingest", { items: [] }),
     ]),
   },
   {

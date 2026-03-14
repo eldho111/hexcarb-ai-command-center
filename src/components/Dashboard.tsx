@@ -95,7 +95,7 @@ export function Dashboard() {
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10">
       {/* ── Hero ──────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--hc-border)] bg-[var(--hc-card-bg)] px-8 pb-8 pt-10 backdrop-blur-md">
+      <section className="relative overflow-hidden rounded-2xl border border-[var(--hc-border)] bg-[var(--hc-card-bg)] px-8 pb-8 pt-10 backdrop-blur-md">
         {/* Ambient decorative gradients */}
         <div
           className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full opacity-30 blur-3xl"
