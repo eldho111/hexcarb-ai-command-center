@@ -79,7 +79,7 @@ export function FormActionView({ config }: { config: FormActionConfig }) {
       )}
 
       {/* Result */}
-      {result !== null && (
+      {result !== null ? (
         <div className="hc-card overflow-hidden p-0">
           <div
             className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider"
@@ -91,10 +91,10 @@ export function FormActionView({ config }: { config: FormActionConfig }) {
             <ResponseDisplay data={result} mode={responseMode} />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* History */}
-      {history.length > 0 && (
+      {history.length > 0 ? (
         <div>
           <button
             onClick={() => setShowHistory(!showHistory)}
@@ -125,7 +125,7 @@ export function FormActionView({ config }: { config: FormActionConfig }) {
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

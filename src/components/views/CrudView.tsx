@@ -128,7 +128,7 @@ export function CrudView({ config }: { config: CrudConfig }) {
       <ActionBar actions={actions} />
 
       {/* Profile section */}
-      {showProfile && profileFields && (
+      {showProfile && profileFields ? (
         <div className="hc-card p-5">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--hc-text-muted)" }}>
             Company Profile
@@ -143,26 +143,26 @@ export function CrudView({ config }: { config: CrudConfig }) {
             loading={formLoading}
           />
         </div>
-      )}
+      ) : null}
 
-      {profile && !showProfile && (
+      {profile != null && !showProfile ? (
         <div className="hc-card p-4">
           <DetailCard title="Company Profile" data={profile} />
         </div>
-      )}
+      ) : null}
 
       {/* Create form */}
-      {showCreate && createFields && (
+      {showCreate && createFields ? (
         <div className="hc-card p-5">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--hc-text-muted)" }}>
             {createLabel || "Create New"}
           </div>
           <FormPanel fields={createFields} onSubmit={handleCreate} submitLabel={createLabel || "Create"} loading={formLoading} />
         </div>
-      )}
+      ) : null}
 
       {/* Update form */}
-      {showUpdate && updateFields && selected && (
+      {showUpdate && updateFields && selected != null ? (
         <div className="hc-card p-5">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--hc-text-muted)" }}>
             Update: {String(selected[idField] ?? "")}
@@ -177,7 +177,7 @@ export function CrudView({ config }: { config: CrudConfig }) {
             loading={formLoading}
           />
         </div>
-      )}
+      ) : null}
 
       {/* Table + detail */}
       <div className="grid gap-4 lg:grid-cols-5">
@@ -208,7 +208,7 @@ export function CrudView({ config }: { config: CrudConfig }) {
         </div>
       </div>
 
-      {lastResult && <ResponseDisplay data={lastResult} />}
+      {lastResult != null ? <ResponseDisplay data={lastResult} /> : null}
     </div>
   );
 }

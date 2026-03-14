@@ -116,22 +116,22 @@ export function ListDetailView({ config }: { config: ListDetailConfig }) {
       <ActionBar actions={actions} />
 
       {/* Search form */}
-      {showSearch && searchFields && (
+      {showSearch && searchFields ? (
         <div className="hc-card p-4">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--hc-text-muted)" }}>Search</div>
           <FormPanel fields={searchFields} onSubmit={handleSearch} submitLabel="Search" />
         </div>
-      )}
+      ) : null}
 
       {/* Create form */}
-      {showCreate && createFields && (
+      {showCreate && createFields ? (
         <div className="hc-card p-4">
           <div className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--hc-text-muted)" }}>
             {createLabel || "Create New"}
           </div>
           <FormPanel fields={createFields} onSubmit={handleCreate} submitLabel={createLabel || "Create"} loading={createLoading} />
         </div>
-      )}
+      ) : null}
 
       {/* Main content: list + detail */}
       <div className="grid gap-4 lg:grid-cols-5">
@@ -147,11 +147,11 @@ export function ListDetailView({ config }: { config: ListDetailConfig }) {
               idField={idField}
             />
           </div>
-          {searchResults && (
+          {searchResults != null ? (
             <p className="mt-2 text-xs" style={{ color: "var(--hc-text-muted)" }}>
               Showing {searchResults.length} search result{searchResults.length !== 1 ? "s" : ""}
             </p>
-          )}
+          ) : null}
         </div>
 
         <div className="lg:col-span-2">
