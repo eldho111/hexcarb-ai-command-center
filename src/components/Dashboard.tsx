@@ -32,15 +32,13 @@ export function Dashboard() {
     async function probe() {
       try {
         const resp = await fetch("/api/engine/ready", { cache: "no-store" });
-        const data = (await resp.json()) as unknown;
         if (cancelled) return;
         if (!resp.ok) {
           setEngine({ status: "down", detail: `HTTP ${resp.status}` });
           return;
         }
-        const obj = data as Record<string, unknown>;
-        const ok = Boolean(obj.ok);
-        setEngine({ status: ok ? "ok" : "down" });
+        const data = (await resp.json()) as { ok?: boolean };
+        setEngine({ status: data.ok ? "ok" : "down" });
       } catch (err) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
@@ -121,7 +119,7 @@ export function Dashboard() {
           }}
         />
 
-        <div className="relative">
+        <div className="relative flex flex-col gap-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-[var(--hc-heading)] sm:text-4xl">
@@ -147,6 +145,9 @@ export function Dashboard() {
                 className="hc-btn hc-btn-ghost text-xs"
               >
                 System Status
+              </Link>
+              <Link className="hex-button" href="/panel/chat">
+                Open Chat
               </Link>
             </div>
           </div>
@@ -180,7 +181,7 @@ export function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* ── Panel Grid by Section ─────────────────────────────── */}
       <div className="mt-12 space-y-12">

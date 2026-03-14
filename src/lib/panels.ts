@@ -79,15 +79,27 @@ export const PANELS: PanelDef[] = [
   {
     id: "doc_ingest",
     label: "Ingest Sources",
-    description: "Load documents into the evidence index.",
+    description: "Load and index new documents into the evidence store.",
     section: "sources",
     quickCalls: withCommonCalls([
       qc("sources", "List Sources", "GET", "/sources"),
+      qc("memory_stats", "Memory Stats", "GET", "/memory/stats"),
+      qc("index_status", "Index Status", "GET", "/experiments/index_status"),
       qc(
-        "index_status",
-        "Index Status",
-        "GET",
-        "/experiments/index_status",
+        "ingest_path",
+        "Ingest Path",
+        "POST",
+        "/ingest_path",
+        { path: "/workspace/hexcarb_runtime/docs" },
+        "Edit the path to a folder available on the engine host.",
+      ),
+      qc(
+        "ingest_files",
+        "Ingest Files",
+        "POST",
+        "/ingest_files",
+        { paths: [] },
+        "Provide a list of file paths on the engine host.",
       ),
       qc(
         "ingest_files",
@@ -114,13 +126,18 @@ export const PANELS: PanelDef[] = [
   {
     id: "chat",
     label: "Cited Chat",
-    description: "Ask grounded questions with citations.",
+    description: "Stream grounded answers with citations.",
     section: "chat",
     quickCalls: withCommonCalls([
       qc("models", "Models", "GET", "/models"),
-      qc("chat_stream", "Chat Stream", "POST", "/chat_stream", {
-        message: "Hello from the web console.",
-      }),
+      qc("chat", "Chat", "POST", "/chat", { message: "Hello from the console." }),
+      qc(
+        "chat_stream",
+        "Chat Stream",
+        "POST",
+        "/chat_stream",
+        { message: "Summarize the latest CNT experiment notes." },
+      ),
     ]),
   },
 
@@ -130,7 +147,7 @@ export const PANELS: PanelDef[] = [
   {
     id: "system_status",
     label: "System Status",
-    description: "Live runtime diagnostics and health.",
+    description: "Runtime health, storage, and model inventory.",
     section: "diagnostics",
     quickCalls: withCommonCalls([
       qc("status", "Status", "GET", "/status"),
@@ -142,24 +159,25 @@ export const PANELS: PanelDef[] = [
   {
     id: "telemetry",
     label: "Telemetry",
-    description: "Event and reliability telemetry.",
+    description: "Operations events and streaming telemetry.",
     section: "diagnostics",
     quickCalls: withCommonCalls([
       qc("ops_events", "Ops Events", "GET", "/ops/events"),
       qc(
-        "ops_events_stream",
+        "ops_stream",
         "Ops Stream (SSE)",
         "GET",
         "/ops/events/stream",
         undefined,
-        "Streams server-sent events; stop with the cancel button.",
+        "Streams server-sent events; cancel to stop.",
       ),
+      qc("history", "History Summary", "GET", "/history/summary"),
     ]),
   },
   {
     id: "capabilities",
     label: "Capabilities",
-    description: "Engine capability registry.",
+    description: "Model registry, routing, and capability inventory.",
     section: "diagnostics",
     quickCalls: withCommonCalls([
       qc("models", "Models", "GET", "/models"),
@@ -213,15 +231,17 @@ export const PANELS: PanelDef[] = [
   {
     id: "experiment_drafts",
     label: "Draft Queue",
-    description: "Create, review, and approve experiment drafts.",
+    description: "Review and approve experiment drafts.",
     section: "experiments",
     quickCalls: withCommonCalls([
       qc("drafts", "List Drafts", "GET", "/experiments/drafts"),
+      qc("canonical", "Canonical Experiments", "GET", "/experiments/canonical"),
       qc(
-        "canonical",
-        "Canonical Experiments",
-        "GET",
-        "/experiments/canonical",
+        "draft_from_answer",
+        "Draft From Answer",
+        "POST",
+        "/experiments/draft_from_answer",
+        { answer: "Draft an experiment using CNT dispersion data." },
       ),
       qc(
         "create_draft",
@@ -236,24 +256,16 @@ export const PANELS: PanelDef[] = [
   {
     id: "experiment_form",
     label: "Experiment Form",
-    description: "Structured canonical experiment editor.",
+    description: "Structured extraction for canonical experiment specs.",
     section: "experiments",
     quickCalls: withCommonCalls([
+      qc("canonical", "Canonical Experiments", "GET", "/experiments/canonical"),
       qc(
-        "canonical",
-        "Canonical Experiments",
-        "GET",
-        "/experiments/canonical",
-      ),
-      qc(
-        "extract_schema",
+        "extract",
         "Extract",
         "POST",
         "/experiments/extract",
-        {
-          text: "Paste a paragraph describing an experiment here.",
-        },
-        "Runs the experiment extractor. Edit the body as needed.",
+        { text: "Describe an experiment with CNT catalyst ratios." },
       ),
       qc(
         "ingest_experiment",
@@ -276,24 +288,25 @@ export const PANELS: PanelDef[] = [
   {
     id: "lab_items",
     label: "Lab Items",
-    description: "Lab inventory and experimental item list.",
+    description: "Lab inventory and domain items for experiments.",
     section: "experiments",
     quickCalls: withCommonCalls([
       qc("domains", "Domains", "GET", "/domains"),
+      qc("lab_items", "Lab Items", "GET", "/domains/lab/items"),
       qc(
-        "items",
-        "Domain Items",
-        "GET",
-        "/domains/lab/items",
-        undefined,
-        "If your lab domain uses a different name, edit the path.",
+        "lab_ingest",
+        "Ingest Lab Items",
+        "POST",
+        "/domains/lab/ingest",
+        { items: [] },
+        "Send lab inventory items in the request body.",
       ),
     ]),
   },
   {
     id: "plot",
     label: "Graph Plotter",
-    description: "Plot and inspect experiment data.",
+    description: "Generate plots from structured experiment data.",
     section: "experiments",
     quickCalls: withCommonCalls([
       qc(
@@ -301,27 +314,25 @@ export const PANELS: PanelDef[] = [
         "Plot (Agent)",
         "POST",
         "/agent/plot/run",
-        {
-          query: "Plot CNT diameter vs yield from the canonical dataset.",
-        },
-        "May require indexed/structured data. Edit the query.",
+        { query: "Plot CNT yield vs temperature from canonical experiments." },
       ),
     ]),
   },
   {
     id: "scout",
     label: "Research Scout",
-    description: "External and internal literature scouting.",
+    description: "External and internal scouting workflows.",
     section: "experiments",
     quickCalls: withCommonCalls([
       qc("scout_list", "Scout List", "GET", "/scout/list"),
+      qc("scout_daily", "Run Daily Scout", "POST", "/scout/run_daily", {}),
       qc(
-        "scout_daily",
-        "Run Daily Scout",
+        "scout_ingest",
+        "Ingest Doc",
         "POST",
-        "/scout/run_daily",
-        {},
-        "Triggers a run; use with care.",
+        "/scout/ingest",
+        { url: "https://example.com/paper.pdf" },
+        "Replace with a URL to ingest.",
       ),
       qc(
         "scout_ingest",
@@ -373,7 +384,7 @@ export const PANELS: PanelDef[] = [
   {
     id: "training",
     label: "Dataset & Training",
-    description: "Export canonical datasets and run training.",
+    description: "Model training, evaluations, and dataset exports.",
     section: "dataset_training",
     quickCalls: withCommonCalls([
       qc("training_status", "Training Status", "GET", "/training/status"),
@@ -397,24 +408,17 @@ export const PANELS: PanelDef[] = [
   {
     id: "news",
     label: "News Board",
-    description: "Monitor relevant materials news.",
+    description: "Monitor materials research news and alerts.",
     section: "dataset_training",
     quickCalls: withCommonCalls([
       qc("news_list", "News List", "GET", "/news/list"),
-      qc(
-        "news_refresh",
-        "Refresh News",
-        "POST",
-        "/news/refresh",
-        {},
-        "Triggers external fetch; may take a bit.",
-      ),
+      qc("news_refresh", "Refresh", "POST", "/news/refresh", {}),
     ]),
   },
   {
     id: "funding",
     label: "Funding",
-    description: "Track grants and funding opportunities.",
+    description: "Funding pipelines, decks, and updates.",
     section: "dataset_training",
     quickCalls: withCommonCalls([
       qc("funding_list", "Funding List", "GET", "/funding/list"),
@@ -436,17 +440,18 @@ export const PANELS: PanelDef[] = [
   {
     id: "system_state",
     label: "System Config",
-    description: "Runtime system state and config view.",
-    section: "admin",
+    description: "Planning context and system state.",
+    section: "diagnostics",
     quickCalls: withCommonCalls([
       qc("state", "State", "GET", "/state"),
-      qc("ops_overview", "Ops Overview", "GET", "/ops/overview"),
+      qc("context", "Planning Context", "GET", "/planning/context"),
+      qc("constraints", "Planning Constraints", "GET", "/planning/constraints"),
     ]),
   },
   {
     id: "compliance",
     label: "Compliance",
-    description: "Compliance controls and records.",
+    description: "Compliance workflows and task tracking.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("profile", "Profile", "GET", "/compliance/profile"),
@@ -464,7 +469,7 @@ export const PANELS: PanelDef[] = [
   {
     id: "approvals",
     label: "Approvals",
-    description: "Approval queue and decisions.",
+    description: "Review and approve queued actions.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("approvals", "Approvals", "GET", "/actions/approvals"),
@@ -481,7 +486,7 @@ export const PANELS: PanelDef[] = [
   {
     id: "notifications",
     label: "Notifications",
-    description: "Notifications inbox and updates.",
+    description: "Create and manage notifications.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("list", "List", "GET", "/notifications/list"),
@@ -498,7 +503,7 @@ export const PANELS: PanelDef[] = [
   {
     id: "messages",
     label: "Messages",
-    description: "Send and read messages.",
+    description: "Send and review internal messages.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("inbox", "Inbox", "GET", "/messages/inbox"),
@@ -516,42 +521,38 @@ export const PANELS: PanelDef[] = [
   {
     id: "overseer",
     label: "HexCarb Overseer",
-    description: "Oversight status and review tools.",
+    description: "Oversight timelines and review runs.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("status", "Oversight Status", "GET", "/oversight/status"),
       qc("timeline", "Timeline", "GET", "/oversight/timeline"),
-      qc(
-        "latest",
-        "Latest Narrative",
-        "GET",
-        "/oversight/narrative/latest",
-      ),
+      qc("review", "Run Review", "POST", "/oversight/review/run", {}),
     ]),
   },
   {
     id: "engine_repair",
     label: "Engine Repair",
-    description: "Repair agent runner.",
-    section: "admin",
+    description: "Diagnostics and repair workflows.",
+    section: "diagnostics",
     quickCalls: withCommonCalls([
+      qc("exec_health", "Execution Health", "GET", "/execution/health"),
+      qc("exec_tasks", "Execution Tasks", "GET", "/execution/tasks"),
       qc(
-        "repair_run",
-        "Run Repair Agent",
+        "repair",
+        "Repair",
         "POST",
         "/agent/repair/run",
-        { query: "Diagnose and propose fixes for engine errors." },
-        "This can trigger tool actions; review responses carefully.",
+        { issue: "Describe the issue to repair." },
       ),
     ]),
   },
   {
     id: "weekly_plan",
     label: "Weekly Plan",
-    description: "Execution goals, tasks, and weekly plan.",
-    section: "admin",
+    description: "Weekly planning and goal tracking.",
+    section: "experiments",
     quickCalls: withCommonCalls([
-      qc("weekly", "Weekly Plan", "GET", "/execution/plan/weekly"),
+      qc("plan", "Weekly Plan", "GET", "/execution/plan/weekly"),
       qc("goals", "Goals", "GET", "/execution/goals"),
       qc("tasks", "Execution Tasks", "GET", "/execution/tasks"),
       qc(
@@ -567,62 +568,77 @@ export const PANELS: PanelDef[] = [
   {
     id: "lead_intel",
     label: "CNT Lead Intel",
-    description: "Run lead intel pipeline and see status.",
-    section: "admin",
+    description: "Lead intelligence and run status.",
+    section: "diagnostics",
     quickCalls: withCommonCalls([
-      qc("status", "Status", "GET", "/lead_intel/status"),
-      qc("run", "Run", "POST", "/lead_intel/run", {}, "Triggers a run."),
+      qc("lead_status", "Status", "GET", "/lead_intel/status"),
+      qc("lead_run", "Run", "POST", "/lead_intel/run", {}),
     ]),
   },
   {
     id: "cloud",
     label: "Cloud Console",
-    description: "Cloudflare tunnel and external connectivity checks.",
-    section: "admin",
+    description: "Storage and infrastructure overview.",
+    section: "diagnostics",
     quickCalls: withCommonCalls([
-      qc("ops_overview", "Ops Overview", "GET", "/ops/overview"),
-      qc("ready", "Ready", "GET", "/ready"),
+      qc("storage", "Storage", "GET", "/storage/overview"),
+      qc("ops", "Ops Overview", "GET", "/ops/overview"),
+      qc("migrate", "Migrate Storage", "POST", "/storage/migrate", {}),
     ]),
   },
   {
     id: "domain_hr",
     label: "HR",
-    description: "Domain panel (HR).",
+    description: "HR domain data and ingestion.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("domains", "Domains", "GET", "/domains"),
-      qc("domain_hr", "HR Domain", "GET", "/domains/hr"),
+      qc("hr_items", "HR Items", "GET", "/domains/hr/items"),
+      qc(
+        "hr_ingest",
+        "HR Ingest",
+        "POST",
+        "/domains/hr/ingest",
+        { items: [] },
+        "Provide HR items to ingest.",
+      ),
     ]),
   },
   {
     id: "domain_procurement",
     label: "Procurement",
-    description: "Domain panel (Procurement).",
+    description: "Procurement pipeline and vendor items.",
     section: "admin",
     quickCalls: withCommonCalls([
-      qc("domains", "Domains", "GET", "/domains"),
+      qc("proc_items", "Procurement Items", "GET", "/domains/procurement/items"),
       qc(
-        "domain_procurement",
-        "Procurement Domain",
-        "GET",
-        "/domains/procurement",
+        "proc_ingest",
+        "Procurement Ingest",
+        "POST",
+        "/domains/procurement/ingest",
+        { items: [] },
       ),
     ]),
   },
   {
     id: "domain_assets",
     label: "Assets",
-    description: "Domain panel (Assets).",
+    description: "Asset registry and tracking.",
     section: "admin",
     quickCalls: withCommonCalls([
-      qc("domains", "Domains", "GET", "/domains"),
-      qc("domain_assets", "Assets Domain", "GET", "/domains/assets"),
+      qc("asset_items", "Asset Items", "GET", "/domains/assets/items"),
+      qc(
+        "asset_ingest",
+        "POST",
+        "/domains/assets/ingest",
+        { items: [] },
+      ),
     ]),
   },
   {
     id: "domain_sales",
     label: "Sales",
-    description: "Domain panel (Sales).",
+    description: "Sales domain and pipeline objects.",
     section: "admin",
     quickCalls: withCommonCalls([
       qc("domains", "Domains", "GET", "/domains"),
@@ -643,38 +659,39 @@ export const PANELS: PanelDef[] = [
   {
     id: "sales_email_generator",
     label: "Email Generator",
-    description: "Generate sales emails from evidence.",
+    description: "Generate and refine sales emails.",
     section: "admin",
     quickCalls: withCommonCalls([
+      qc("email_drafts", "Drafts", "GET", "/sales/email/drafts"),
       qc(
-        "generate",
+        "email_generate",
         "Generate",
         "POST",
         "/sales/email/generate",
-        {
-          prompt: "Draft an outreach email about our CNT capabilities.",
-          tone: "direct",
-        },
-        "Edit the body fields to match the API contract.",
+        { prompt: "Draft an email about CNT thermal performance." },
       ),
       qc(
-        "drafts",
-        "Drafts",
-        "GET",
-        "/sales/email/drafts",
-        undefined,
-        "Lists generated drafts.",
+        "email_batch",
+        "Generate Batch",
+        "POST",
+        "/sales/email/generate_batch",
+        { prompts: ["Follow up with lab partner."], audience: "partner" },
       ),
     ]),
   },
   {
     id: "domain_accounts",
     label: "Accounts",
-    description: "Domain panel (Accounts).",
+    description: "Account data and customer records.",
     section: "admin",
     quickCalls: withCommonCalls([
-      qc("domains", "Domains", "GET", "/domains"),
-      qc("domain_finance", "Accounts Domain", "GET", "/domains/finance"),
+      qc("account_items", "Account Items", "GET", "/domains/accounts/items"),
+      qc(
+        "account_ingest",
+        "POST",
+        "/domains/accounts/ingest",
+        { items: [] },
+      ),
     ]),
   },
   {
@@ -770,9 +787,13 @@ export const PANELS: PanelDef[] = [
   {
     id: "admin_scaffold",
     label: "Scaffold / Coming Soon",
-    description: "Placeholder for future admin tools.",
+    description: "Admin scaffolding and diagnostics hub.",
     section: "admin",
-    quickCalls: withCommonCalls([]),
+    quickCalls: withCommonCalls([
+      qc("diag_rag", "RAG Diagnostics", "GET", "/diag/rag"),
+      qc("history", "History Summary", "GET", "/history/summary"),
+      qc("ops", "Ops Overview", "GET", "/ops/overview"),
+    ]),
   },
 ];
 

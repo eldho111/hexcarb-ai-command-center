@@ -509,6 +509,7 @@ export function EngineRunner(props: {
               </div>
             )}
           </div>
+        </div>
 
           {/* Error */}
           {error && (

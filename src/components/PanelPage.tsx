@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 
 import type { PanelDef } from "@/lib/panels";
 import { SECTION_LABELS } from "@/lib/panels";
@@ -12,6 +13,11 @@ export function PanelPage(props: { panel: PanelDef }) {
   const defaultCall =
     panel.quickCalls.find((c) => c.method === "GET") || panel.quickCalls[0];
   const sectionLabel = SECTION_LABELS[panel.section] ?? panel.section;
+
+  const endpoints = useMemo(
+    () => panel.quickCalls.map((call) => `${call.method} ${call.path}`),
+    [panel.quickCalls],
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10">
