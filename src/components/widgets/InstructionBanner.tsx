@@ -59,11 +59,11 @@ export function InstructionBanner({
       {open && (
         <div className="space-y-2 px-4 pb-4 text-sm" style={{ color: "var(--hc-text-muted)" }}>
           <p>{instructions}</p>
-          {tips && tips.length > 0 && (
+          {tips != null && tips.length > 0 ? (
             <ul className="list-disc space-y-1 pl-5 text-xs">
               {tips.map((tip, i) => <li key={i}>{tip}</li>)}
             </ul>
-          )}
+          ) : null}
         </div>
       )}
     </div>

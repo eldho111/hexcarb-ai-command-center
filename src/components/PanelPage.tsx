@@ -114,11 +114,11 @@ export function PanelPage(props: { panel: PanelDef }) {
       </div>
 
       {/* ── Related Panels ──────────────────────────────────────── */}
-      {panel.relatedPanels && panel.relatedPanels.length > 0 && (
+      {panel.relatedPanels != null && panel.relatedPanels.length > 0 ? (
         <div className="mt-6">
           <RelatedLinks links={panel.relatedPanels} />
         </div>
-      )}
+      ) : null}
 
       {/* ── Advanced: API Runner (collapsible) ──────────────────── */}
       <div className="mt-8">

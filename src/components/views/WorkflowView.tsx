@@ -123,7 +123,7 @@ export function WorkflowView({ config }: { config: WorkflowConfig }) {
                     </div>
                     <div className="mt-0.5 text-xs" style={{ color: "var(--hc-text-muted)" }}>
                       ID: {id}
-                      {item.created_at && <span className="ml-3">{new Date(String(item.created_at)).toLocaleDateString()}</span>}
+                      {item.created_at != null ? <span className="ml-3">{new Date(String(item.created_at)).toLocaleDateString()}</span> : null}
                     </div>
                   </div>
                   <svg
