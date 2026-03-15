@@ -25,6 +25,38 @@ export type DashboardModuleState = {
   error: string | null;
 };
 
+
+export type CompanyStatusLane = {
+  tone: DashboardTone;
+  headline: string;
+  item_count: number;
+  top_items: string[];
+};
+
+export type CompanyStatusBet = {
+  title: string;
+  tone: DashboardTone;
+  headline: string;
+  item_count: number;
+  item_ids: string[];
+  top_items: string[];
+  lifecycles: string[];
+};
+
+export type CompanyStatusSummary = {
+  phase: string;
+  summary: string;
+  operating_mode: string;
+  mapping_mode: string;
+  override_count: number;
+  lanes: Record<string, CompanyStatusLane>;
+  top_bets: CompanyStatusBet[];
+  top_risks: string[];
+  top_catalysts: string[];
+  strategic_bets: string[];
+  as_of: string;
+};
+
 export interface CompanyDashboardSnapshot {
   ok: true;
   generated_at: string;
@@ -36,6 +68,7 @@ export interface CompanyDashboardSnapshot {
     engine_status: string;
     module_errors: number;
   };
+  company_status: CompanyStatusSummary | null;
   kpis: {
     active_projects: number;
     overdue_tasks: number;

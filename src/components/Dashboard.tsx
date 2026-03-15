@@ -480,6 +480,163 @@ function WorkspaceCard({
   );
 }
 
+function humanizeSlug(value: string): string {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function CompanyStatusPanel({ status }: { status: CompanyDashboardSnapshot["company_status"] }) {
+  if (!status) {
+    return (
+      <SectionCard
+        title="Company Status"
+        subtitle="Strategic company synthesis will appear here once the Projects workspace has a saved planner feed."
+        actionHref="/panel/projects"
+        actionLabel="Open Projects"
+      >
+        <div className="rounded-2xl border border-dashed px-4 py-5 text-sm" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg)" }}>
+          Paste the current planner feed into Projects, refresh it, and the founder dashboard will start summarizing company phase, strategic bets, risks, and catalysts here.
+        </div>
+      </SectionCard>
+    );
+  }
+
+  const visibleLanes = Object.entries(status.lanes).filter(([, lane]) => lane.item_count > 0);
+
+  return (
+    <SectionCard
+      title="Company Status"
+      subtitle="Founder-level synthesis of current company phase, strategic bets, operating load, and the main management drag."
+      actionHref="/panel/projects"
+      actionLabel="Projects"
+    >
+      <div className="space-y-5">
+        <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+          <div className="rounded-[28px] border p-5" style={{ background: "var(--hc-surface-elevated)", borderColor: "var(--hc-border)" }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <MetaChip>{humanizeSlug(status.phase)}</MetaChip>
+              <MetaChip>{status.mapping_mode === "hybrid_overrides" ? `Override assisted (${status.override_count})` : "Heuristic mapping"}</MetaChip>
+              <MetaChip>As of {formatDateTime(status.as_of)}</MetaChip>
+            </div>
+            <h3 className="mt-4 text-xl font-semibold tracking-tight" style={{ color: "var(--hc-heading)" }}>
+              {status.summary}
+            </h3>
+            <p className="mt-3 text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
+              {status.operating_mode}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {status.strategic_bets.map((bet) => (
+                <span key={bet} className="rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text)", border: "1px solid var(--hc-border)" }}>
+                  {bet}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[28px] border p-5" style={{ background: "var(--hc-surface-elevated)", borderColor: "var(--hc-border)" }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-accent)" }}>
+              Top Bets
+            </div>
+            <div className="mt-3 space-y-3">
+              {status.top_bets.length ? status.top_bets.map((bet) => {
+                const colors = toneStyles(bet.tone);
+                return (
+                  <div key={bet.title} className="rounded-2xl border p-3" style={{ background: colors.background, borderColor: colors.border }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold" style={{ color: colors.color }}>
+                        {bet.title}
+                      </div>
+                      <StatusBadge status={statusFromTone(bet.tone)} />
+                    </div>
+                    <div className="mt-2 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                      {bet.headline}
+                    </div>
+                    {bet.top_items.length ? (
+                      <div className="mt-2 text-[11px]" style={{ color: "var(--hc-text-muted)" }}>
+                        {bet.top_items.join(" • ")}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }) : (
+                <div className="rounded-2xl border border-dashed px-4 py-5 text-sm" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg)" }}>
+                  No strategic bets have been mapped yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {(visibleLanes.length ? visibleLanes : Object.entries(status.lanes)).map(([laneName, lane]) => {
+            const colors = toneStyles(lane.tone);
+            return (
+              <div key={laneName} className="rounded-[24px] border p-4" style={{ background: "var(--hc-surface-elevated)", borderColor: colors.border }}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
+                      {humanizeSlug(laneName)}
+                    </div>
+                    <div className="mt-2 text-2xl font-semibold tracking-tight" style={{ color: colors.color }}>
+                      {lane.item_count}
+                    </div>
+                  </div>
+                  <StatusBadge status={statusFromTone(lane.tone)} />
+                </div>
+                <p className="mt-3 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                  {lane.headline}
+                </p>
+                {lane.top_items.length ? (
+                  <div className="mt-3 text-[11px]" style={{ color: "var(--hc-text-muted)" }}>
+                    {lane.top_items.join(" • ")}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-accent)" }}>
+              Top Risks
+            </div>
+            <div className="space-y-3">
+              {status.top_risks.length ? status.top_risks.map((risk) => (
+                <div key={risk} className="rounded-2xl border px-4 py-3 text-sm" style={{ background: "rgba(245,100,84,0.08)", borderColor: "rgba(245,100,84,0.24)", color: "var(--hc-text)" }}>
+                  {risk}
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed px-4 py-5 text-sm" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg)" }}>
+                  No company-level risks are currently synthesized.
+                </div>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-accent)" }}>
+              Top Catalysts
+            </div>
+            <div className="space-y-3">
+              {status.top_catalysts.length ? status.top_catalysts.map((catalyst) => (
+                <div key={catalyst} className="rounded-2xl border px-4 py-3 text-sm" style={{ background: "rgba(78,124,116,0.08)", borderColor: "rgba(78,124,116,0.24)", color: "var(--hc-text)" }}>
+                  {catalyst}
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed px-4 py-5 text-sm" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg)" }}>
+                  No company-level catalysts are currently synthesized.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 function LoadingShell() {
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-5 py-10">
@@ -709,6 +866,8 @@ export function Dashboard() {
         <OrbitalMetricCard label="Funding Pipeline" value={kpis.funding_opportunities} detail="Tracked grants, investor motion, and opportunity flow." tone="info" href="/panel/funding" />
         <OrbitalMetricCard label="Indexed Chunks" value={kpis.indexed_chunks} detail={`${kpis.unread_notifications} unread notices still in the system.`} tone="info" href="/panel/doc_ingest" />
       </section>
+
+      <CompanyStatusPanel status={snapshot.company_status} />
 
       <SectionCard title="Workspace Map" subtitle="A calmer view of where work lives in the company cockpit and what each area is signaling right now." actionHref="/panel/projects" actionLabel="Open Workspace">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

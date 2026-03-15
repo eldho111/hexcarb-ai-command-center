@@ -27,6 +27,44 @@ type BoardColumn = {
   item_ids: string[];
 };
 
+type CompanyStatusLane = {
+  tone: string;
+  headline: string;
+  item_count: number;
+  top_items: string[];
+};
+
+type CompanyStatusBet = {
+  title: string;
+  tone: string;
+  headline: string;
+  item_count: number;
+  item_ids: string[];
+  top_items: string[];
+  lifecycles: string[];
+};
+
+type CompanyStatus = {
+  phase: string;
+  summary: string;
+  operating_mode: string;
+  mapping_mode: string;
+  override_count: number;
+  lanes: Record<string, CompanyStatusLane>;
+  top_bets: CompanyStatusBet[];
+  top_risks: string[];
+  top_catalysts: string[];
+  strategic_bets: string[];
+  as_of: string;
+};
+
+type ProjectOverride = {
+  lane?: string;
+  bet?: string;
+  lifecycle?: string;
+  counts_toward_status?: boolean;
+};
+
 type PlannerWorkspaceResponse = {
   found?: boolean;
   persisted?: boolean;
@@ -36,6 +74,16 @@ type PlannerWorkspaceResponse = {
 
 const STORAGE_INPUTS_KEY = "hc-company-planner-inputs-v1";
 const STORAGE_CONTEXT_KEY = "hc-company-planner-context-v1";
+const DEFAULT_STRATEGIC_BETS = [
+  "Nanotube sales",
+  "MWCNT and SWCNT dispersion for battery",
+  "Dispersion for refractory/cement",
+  "Pristine nanotube fiber",
+  "Thermal interface material",
+  "Long-term single chiral nanotube reactor",
+] as const;
+const LANE_OPTIONS = ["execution", "operations", "growth", "rnd", "engine"] as const;
+const LIFECYCLE_OPTIONS = ["discovery", "validation", "commercialization", "infrastructure", "governance"] as const;
 const PLANNER_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 const TAB_ORDER: DashboardTab[] = ["overview", "intake", "database", "board", "next"];
 const TAB_LABELS: Record<DashboardTab, string> = {
@@ -167,6 +215,107 @@ function formatList(items: string[], empty = "None", limit = 4): string {
 
 function statusLabel(status: string): string {
   return STATUS_LABELS[status] || status || "Planned";
+}
+
+function humanizeSlug(value: string): string {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function parseStrategicBets(value: unknown): string[] {
+  const items = asStringArray(value);
+  return items.length > 0 ? items : [...DEFAULT_STRATEGIC_BETS];
+}
+
+function parseProjectOverrides(value: unknown): Record<string, ProjectOverride> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, item]) => isRecord(item))
+      .map(([planId, item]) => {
+        const entry = item as JsonRecord;
+        const normalized: ProjectOverride = {};
+        const lane = asString(entry.lane).toLowerCase();
+        const bet = asString(entry.bet);
+        const lifecycle = asString(entry.lifecycle).toLowerCase();
+        if (lane) normalized.lane = lane;
+        if (bet) normalized.bet = bet;
+        if (lifecycle) normalized.lifecycle = lifecycle;
+        if (typeof entry.counts_toward_status === "boolean") {
+          normalized.counts_toward_status = entry.counts_toward_status;
+        }
+        return [planId, normalized];
+      }),
+  );
+}
+
+function parseCompanyStatus(value: unknown): CompanyStatus | null {
+  if (!isRecord(value)) return null;
+  const lanes = isRecord(value.lanes)
+    ? Object.fromEntries(
+        Object.entries(value.lanes).map(([lane, payload]) => {
+          const laneRecord = isRecord(payload) ? payload : {};
+          return [
+            lane,
+            {
+              tone: asString(laneRecord.tone, "info"),
+              headline: asString(laneRecord.headline),
+              item_count: asNumber(laneRecord.item_count),
+              top_items: asStringArray(laneRecord.top_items),
+            } satisfies CompanyStatusLane,
+          ];
+        }),
+      )
+    : {};
+  return {
+    phase: asString(value.phase, "operating_execution"),
+    summary: asString(value.summary),
+    operating_mode: asString(value.operating_mode),
+    mapping_mode: asString(value.mapping_mode, "default_heuristic"),
+    override_count: asNumber(value.override_count),
+    lanes,
+    top_bets: asRecordArray(value.top_bets).map((item) => ({
+      title: asString(item.title, "Strategic bet"),
+      tone: asString(item.tone, "info"),
+      headline: asString(item.headline),
+      item_count: asNumber(item.item_count),
+      item_ids: asStringArray(item.item_ids),
+      top_items: asStringArray(item.top_items),
+      lifecycles: asStringArray(item.lifecycles),
+    })),
+    top_risks: asStringArray(value.top_risks),
+    top_catalysts: asStringArray(value.top_catalysts),
+    strategic_bets: parseStrategicBets(value.strategic_bets),
+    as_of: asString(value.as_of),
+  };
+}
+
+function companyTone(tone: string): { background: string; color: string; border: string } {
+  switch (tone) {
+    case "success":
+      return { background: "rgba(29, 122, 99, 0.14)", color: "var(--hc-green)", border: "rgba(29, 122, 99, 0.28)" };
+    case "warning":
+      return { background: "rgba(181, 125, 0, 0.14)", color: "var(--hc-accent)", border: "rgba(181, 125, 0, 0.28)" };
+    case "critical":
+      return { background: "rgba(196, 82, 39, 0.14)", color: "var(--hc-active)", border: "rgba(196, 82, 39, 0.28)" };
+    default:
+      return { background: "rgba(46, 92, 180, 0.12)", color: "var(--hc-text)", border: "rgba(46, 92, 180, 0.22)" };
+  }
+}
+
+function strategicBetsToText(value: string[]): string {
+  return value.join("\n");
+}
+
+function strategicBetsFromText(value: string): string[] {
+  const items = value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length > 0 ? Array.from(new Set(items)) : [...DEFAULT_STRATEGIC_BETS];
 }
 
 function parsePlannerFeedPreview(feedMarkdown: string): PreviewRow[] {
@@ -718,6 +867,259 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
   );
 }
 
+function CompanyStatusCard({ status }: { status: CompanyStatus | null }) {
+  if (!status) {
+    return (
+      <section className="hc-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+              Company Status
+            </h3>
+            <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+              Founder-level synthesis of the current company queue.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl px-4 py-4 text-sm" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)", color: "var(--hc-text-muted)" }}>
+          Refresh Projects with your current planner feed to generate the company phase, strategic bet map, risks, and catalysts.
+        </div>
+      </section>
+    );
+  }
+
+  const visibleLanes = Object.entries(status.lanes).filter(([, lane]) => lane.item_count > 0);
+
+  return (
+    <section className="hc-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+            Company Status
+          </h3>
+          <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+            Strategic synthesis of what phase HexCarb is in, which programs are carrying the load, and what is creating drag.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded-full px-3 py-1 font-semibold" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text)", border: "1px solid var(--hc-border)" }}>
+            {humanizeSlug(status.phase)}
+          </span>
+          <span className="rounded-full px-3 py-1 font-semibold" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text)", border: "1px solid var(--hc-border)" }}>
+            {status.mapping_mode === "hybrid_overrides" ? `Override assisted (${status.override_count})` : "Heuristic mapping"}
+          </span>
+          {status.as_of ? (
+            <span className="rounded-full px-3 py-1 font-semibold" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text-muted)", border: "1px solid var(--hc-border)" }}>
+              {formatSavedAt(status.as_of)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+        <div className="rounded-3xl p-5" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+          <h4 className="text-lg font-semibold leading-7" style={{ color: "var(--hc-heading)" }}>
+            {status.summary}
+          </h4>
+          <p className="mt-3 text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
+            {status.operating_mode}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {status.strategic_bets.map((bet) => (
+              <span key={bet} className="rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: "var(--hc-card-bg)", color: "var(--hc-text)", border: "1px solid var(--hc-border)" }}>
+                {bet}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-3xl p-5" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+          <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+            Top Bets
+          </div>
+          <div className="mt-3 space-y-3">
+            {status.top_bets.length ? status.top_bets.slice(0, 3).map((bet) => {
+              const colors = companyTone(bet.tone);
+              return (
+                <div key={bet.title} className="rounded-2xl border p-3" style={{ background: colors.background, borderColor: colors.border }}>
+                  <div className="text-sm font-semibold" style={{ color: colors.color }}>
+                    {bet.title}
+                  </div>
+                  <div className="mt-1 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                    {bet.headline}
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text-muted)" }}>
+                No strategic bets are mapped yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {(visibleLanes.length ? visibleLanes : Object.entries(status.lanes)).map(([laneName, lane]) => {
+          const colors = companyTone(lane.tone);
+          return (
+            <div key={laneName} className="rounded-3xl border p-4" style={{ background: "var(--hc-card-bg)", borderColor: colors.border }}>
+              <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+                {humanizeSlug(laneName)}
+              </div>
+              <div className="mt-2 text-2xl font-semibold" style={{ color: colors.color }}>
+                {lane.item_count}
+              </div>
+              <div className="mt-2 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                {lane.headline}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div className="rounded-3xl p-4" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+          <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+            Top Risks
+          </div>
+          <div className="mt-3 space-y-2">
+            {status.top_risks.length ? status.top_risks.map((risk) => (
+              <div key={risk} className="rounded-2xl border px-3 py-2 text-sm" style={{ background: "rgba(245,100,84,0.08)", borderColor: "rgba(245,100,84,0.24)", color: "var(--hc-text)" }}>
+                {risk}
+              </div>
+            )) : <div className="text-sm" style={{ color: "var(--hc-text-muted)" }}>No synthesized risks yet.</div>}
+          </div>
+        </div>
+        <div className="rounded-3xl p-4" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+          <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+            Top Catalysts
+          </div>
+          <div className="mt-3 space-y-2">
+            {status.top_catalysts.length ? status.top_catalysts.map((catalyst) => (
+              <div key={catalyst} className="rounded-2xl border px-3 py-2 text-sm" style={{ background: "rgba(78,124,116,0.08)", borderColor: "rgba(78,124,116,0.24)", color: "var(--hc-text)" }}>
+                {catalyst}
+              </div>
+            )) : <div className="text-sm" style={{ color: "var(--hc-text-muted)" }}>No synthesized catalysts yet.</div>}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProjectStatusOverridePanel({
+  item,
+  override,
+  strategicBets,
+  onChange,
+}: {
+  item: JsonRecord | null;
+  override: ProjectOverride;
+  strategicBets: string[];
+  onChange: (patch: ProjectOverride) => void;
+}) {
+  if (!item) {
+    return (
+      <section className="hc-card p-5">
+        <div className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+          Company Status Override
+        </div>
+        <p className="mt-2 text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
+          Select a project to manually correct its company lane, strategic bet, lifecycle, or rollup behavior.
+        </p>
+      </section>
+    );
+  }
+
+  const laneValue = override.lane ?? asString(item.company_lane);
+  const betValue = override.bet ?? asString(item.company_bet);
+  const lifecycleValue = override.lifecycle ?? asString(item.company_lifecycle);
+  const countsToward = typeof override.counts_toward_status === "boolean"
+    ? override.counts_toward_status
+    : typeof item.company_counts_toward_status === "boolean"
+      ? item.company_counts_toward_status
+      : true;
+
+  return (
+    <section className="hc-card p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+            Company Status Override
+          </div>
+          <div className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+            Manual corrections for the selected project. Changes apply when you refresh Projects.
+          </div>
+        </div>
+        <span className="rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text-muted)", border: "1px solid var(--hc-border)" }}>
+          {asString(item.company_mapping_source, "heuristic") === "manual_override" || Object.keys(override).length > 0 ? "Override pending" : "Heuristic"}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+            Lane
+          </label>
+          <select
+            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+            value={laneValue}
+            onChange={(event) => onChange({ lane: event.target.value || undefined })}
+          >
+            <option value="">Auto (heuristic)</option>
+            {LANE_OPTIONS.map((lane) => (
+              <option key={lane} value={lane}>{humanizeSlug(lane)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+            Lifecycle
+          </label>
+          <select
+            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+            value={lifecycleValue}
+            onChange={(event) => onChange({ lifecycle: event.target.value || undefined })}
+          >
+            <option value="">Auto (heuristic)</option>
+            {LIFECYCLE_OPTIONS.map((lifecycle) => (
+              <option key={lifecycle} value={lifecycle}>{humanizeSlug(lifecycle)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+          Strategic Bet
+        </label>
+        <select
+          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+          style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+          value={betValue}
+          onChange={(event) => onChange({ bet: event.target.value || undefined })}
+        >
+          <option value="">Auto (heuristic)</option>
+          {strategicBets.map((bet) => (
+            <option key={bet} value={bet}>{bet}</option>
+          ))}
+        </select>
+      </div>
+
+      <label className="mt-4 flex items-center gap-3 rounded-2xl px-3 py-3 text-sm" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}>
+        <input
+          type="checkbox"
+          checked={countsToward}
+          onChange={(event) => onChange({ counts_toward_status: event.target.checked })}
+        />
+        Include this project in the company-status rollup
+      </label>
+    </section>
+  );
+}
+
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <section className="hc-card p-6">
@@ -745,6 +1147,8 @@ export function CompanyPlannerPanel() {
   const [restored, setRestored] = useState(false);
   const [saveLocation, setSaveLocation] = useState<"none" | "backend" | "local">("none");
   const [savedAt, setSavedAt] = useState("");
+  const [strategicBets, setStrategicBets] = useState<string[]>([...DEFAULT_STRATEGIC_BETS]);
+  const [projectOverrides, setProjectOverrides] = useState<Record<string, ProjectOverride>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -765,7 +1169,13 @@ export function CompanyPlannerPanel() {
           if (typeof workspace.user_id === "string") setOwnerId(workspace.user_id);
           if (typeof workspace.feed_markdown === "string") setFeedMarkdown(workspace.feed_markdown);
           setSeedPlansJson(seedPlansToJson(workspace.seed_plans));
-          if (remoteContext) setPlanningContext(remoteContext);
+          setStrategicBets(parseStrategicBets(isRecord(workspace) ? workspace.strategic_bets : remoteContext?.strategic_bets));
+          setProjectOverrides(parseProjectOverrides(isRecord(workspace) ? workspace.project_overrides : remoteContext?.project_overrides));
+          if (remoteContext) {
+            setPlanningContext(remoteContext);
+            setStrategicBets(parseStrategicBets(remoteContext.strategic_bets ?? workspace.strategic_bets));
+            setProjectOverrides(parseProjectOverrides(remoteContext.project_overrides ?? workspace.project_overrides));
+          }
           setSaveLocation("backend");
           setSavedAt(asString(workspace.saved_at));
           restoredFromBackend = true;
@@ -792,6 +1202,14 @@ export function CompanyPlannerPanel() {
               setSeedPlansJson(parsed.seedPlansJson);
               hasLocalDraft = hasLocalDraft || Boolean(parsed.seedPlansJson.trim());
             }
+            if (Array.isArray(parsed.strategicBets) || typeof parsed.strategicBets === "string") {
+              setStrategicBets(parseStrategicBets(parsed.strategicBets));
+              hasLocalDraft = true;
+            }
+            if (isRecord(parsed.projectOverrides)) {
+              setProjectOverrides(parseProjectOverrides(parsed.projectOverrides));
+              hasLocalDraft = true;
+            }
           }
 
           const rawContext = window.localStorage.getItem(STORAGE_CONTEXT_KEY);
@@ -799,6 +1217,8 @@ export function CompanyPlannerPanel() {
             const parsedContext = JSON.parse(rawContext) as unknown;
             if (isRecord(parsedContext)) {
               setPlanningContext(parsedContext);
+              setStrategicBets(parseStrategicBets(parsedContext.strategic_bets));
+              setProjectOverrides(parseProjectOverrides(parsedContext.project_overrides));
               hasLocalDraft = true;
             }
           }
@@ -826,9 +1246,11 @@ export function CompanyPlannerPanel() {
         ownerId,
         feedMarkdown,
         seedPlansJson,
+        strategicBets,
+        projectOverrides,
       }),
     );
-  }, [ownerId, feedMarkdown, seedPlansJson, restored]);
+  }, [ownerId, feedMarkdown, seedPlansJson, strategicBets, projectOverrides, restored]);
 
   useEffect(() => {
     if (!restored) return;
@@ -854,6 +1276,8 @@ export function CompanyPlannerPanel() {
       if (ownerId.trim()) payload.user_id = ownerId.trim();
       if (feedMarkdown.trim()) payload.feed_markdown = feedMarkdown;
       if (seedPlans.length > 0) payload.seed_plans = seedPlans;
+      if (strategicBets.length > 0) payload.strategic_bets = strategicBets;
+      if (Object.keys(projectOverrides).length > 0) payload.project_overrides = projectOverrides;
 
       const res = await engineFetch<PlannerWorkspaceResponse>("/planning/company", {
         method: "POST",
@@ -865,6 +1289,8 @@ export function CompanyPlannerPanel() {
       }
 
       setPlanningContext(res.planning_context);
+      setStrategicBets(parseStrategicBets(res.planning_context.strategic_bets));
+      setProjectOverrides(parseProjectOverrides(res.planning_context.project_overrides));
       setSaveLocation(res.persisted ? "backend" : "local");
       setSavedAt(isRecord(res.workspace) ? asString(res.workspace.saved_at) : "");
       setActiveTab("overview");
@@ -887,6 +1313,8 @@ export function CompanyPlannerPanel() {
     setSelectedPlanId("");
     setSaveLocation("none");
     setSavedAt("");
+    setStrategicBets([...DEFAULT_STRATEGIC_BETS]);
+    setProjectOverrides({});
     setError("");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_INPUTS_KEY);
@@ -916,6 +1344,7 @@ export function CompanyPlannerPanel() {
   const rawBoardColumns = asRecordArray(board.columns);
   const focusNow = asStringArray(planningContext?.focus_now);
   const relationships = asRecordArray(planningContext?.planner_relationships);
+  const companyStatus = parseCompanyStatus(planningContext?.company_status);
 
   const projectRows = plannerItems.length > 0 ? plannerItems : seedPlans.length > 0 ? seedPlans : intakeRows;
   const filteredRows = projectRows.filter((item) => itemMatches(item, searchQuery, statusFilter));
@@ -967,6 +1396,37 @@ export function CompanyPlannerPanel() {
   }, [selectedProject, selectedPlanId]);
 
   const selectedId = selectedProject ? itemId(selectedProject) : "";
+  const selectedOverride = selectedId ? projectOverrides[selectedId] ?? {} : {};
+
+  function updateSelectedProjectOverride(patch: ProjectOverride) {
+    if (!selectedProject) return;
+    const planId = itemId(selectedProject);
+    const defaultLane = asString(selectedProject.company_lane);
+    const defaultBet = asString(selectedProject.company_bet);
+    const defaultLifecycle = asString(selectedProject.company_lifecycle);
+    const defaultCounts = typeof selectedProject.company_counts_toward_status === "boolean"
+      ? selectedProject.company_counts_toward_status
+      : true;
+
+    setProjectOverrides((current) => {
+      const existing = current[planId] ?? {};
+      const next: ProjectOverride = { ...existing, ...patch };
+      if (!next.lane || next.lane === defaultLane) delete next.lane;
+      if (!next.bet || next.bet === defaultBet) delete next.bet;
+      if (!next.lifecycle || next.lifecycle === defaultLifecycle) delete next.lifecycle;
+      if (typeof next.counts_toward_status === "boolean" && next.counts_toward_status === defaultCounts) {
+        delete next.counts_toward_status;
+      }
+      const out = { ...current };
+      if (Object.keys(next).length === 0) {
+        delete out[planId];
+      } else {
+        out[planId] = next;
+      }
+      return out;
+    });
+  }
+
   const activeCount = projectRows.filter((item) => asString(item.status, "planned") === "active").length;
   const blockedCount = projectRows.filter((item) => asString(item.status, "planned") === "blocked").length;
   const highPriorityCount = projectRows.filter((item) => priorityRank(asString(item.priority, "medium")) <= 1).length;
@@ -1099,6 +1559,8 @@ export function CompanyPlannerPanel() {
         <div className="space-y-6">
           {activeTab === "overview" ? (
             <>
+              <CompanyStatusCard status={companyStatus} />
+
               <div className="grid gap-6 xl:grid-cols-2">
                 <section className="hc-card p-5">
                   <div className="flex items-center justify-between gap-3">
@@ -1296,6 +1758,17 @@ export function CompanyPlannerPanel() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                        Strategic Bets
+                      </label>
+                      <textarea
+                        className="min-h-[120px] w-full rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                        style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                        value={strategicBetsToText(strategicBets)}
+                        onChange={(event) => setStrategicBets(strategicBetsFromText(event.target.value))}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
                         Seed Plans JSON
                       </label>
                       <textarea
@@ -1438,6 +1911,12 @@ export function CompanyPlannerPanel() {
 
         <div className="space-y-6">
           <ProjectDetailPanel item={selectedProject} />
+          <ProjectStatusOverridePanel
+            item={selectedProject}
+            override={selectedOverride}
+            strategicBets={strategicBets}
+            onChange={updateSelectedProjectOverride}
+          />
 
           <section className="hc-card p-5">
             <div className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>

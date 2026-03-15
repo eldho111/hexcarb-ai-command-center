@@ -52,6 +52,56 @@ function asStringArray(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
+function asTone(value: unknown, fallback: DashboardTone = "info"): DashboardTone {
+  const tone = asString(value, fallback);
+  return ["info", "success", "warning", "critical"].includes(tone) ? (tone as DashboardTone) : fallback;
+}
+
+function normalizeCompanyStatus(value: unknown): CompanyDashboardSnapshot["company_status"] {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const rawLanes = asRecord(record.lanes) ?? {};
+  const lanes = Object.fromEntries(
+    Object.entries(rawLanes).map(([lane, payload]) => {
+      const laneRecord = asRecord(payload) ?? {};
+      return [
+        lane,
+        {
+          tone: asTone(laneRecord.tone),
+          headline: asString(laneRecord.headline),
+          item_count: asNumber(laneRecord.item_count),
+          top_items: asStringArray(laneRecord.top_items),
+        },
+      ];
+    }),
+  );
+
+  const topBets = asRecordArray(record.top_bets).map((item) => ({
+    title: asString(item.title, "Strategic bet"),
+    tone: asTone(item.tone),
+    headline: asString(item.headline),
+    item_count: asNumber(item.item_count),
+    item_ids: asStringArray(item.item_ids),
+    top_items: asStringArray(item.top_items),
+    lifecycles: asStringArray(item.lifecycles),
+  }));
+
+  return {
+    phase: asString(record.phase, "operating_execution"),
+    summary: asString(record.summary),
+    operating_mode: asString(record.operating_mode),
+    mapping_mode: asString(record.mapping_mode, "default_heuristic"),
+    override_count: asNumber(record.override_count),
+    lanes,
+    top_bets: topBets,
+    top_risks: asStringArray(record.top_risks),
+    top_catalysts: asStringArray(record.top_catalysts),
+    strategic_bets: asStringArray(record.strategic_bets),
+    as_of: asString(record.as_of),
+  };
+}
+
 function formatDate(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) return "No date";
   const date = new Date(value);
@@ -350,6 +400,7 @@ export async function GET(req: NextRequest) {
   const messages = asRecordArray(asRecord(messagesRes.data)?.items);
 
   const plannerStats = asRecord(planningContext?.planner_stats) ?? {};
+  const companyStatus = normalizeCompanyStatus(planningContext?.company_status);
   const plannerItems = asRecordArray(planningContext?.planner_items);
   const plannerLookup = new Map(plannerItems.map((item) => [asString(item.plan_id), item]));
   const nextGeneratedPayload = asRecord(planningNextRes.data);
@@ -501,6 +552,7 @@ export async function GET(req: NextRequest) {
       engine_status: engineStatus,
       module_errors: Object.values(modules).filter((module) => !module.ok).length,
     },
+    company_status: companyStatus,
     kpis: {
       active_projects: activeProjects,
       overdue_tasks: overdueTaskIds.length,
