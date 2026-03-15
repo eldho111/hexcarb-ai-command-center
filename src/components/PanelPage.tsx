@@ -19,11 +19,14 @@ import { CrudView } from "@/components/views/CrudView";
 import { ChatPanel } from "@/components/ChatPanel";
 import { LeadIntelPanel } from "@/components/LeadIntelPanel";
 import { EngineRunner } from "@/components/EngineRunner";
+import { IngestPanel } from "@/components/IngestPanel";
 import { InstructionBanner } from "@/components/widgets/InstructionBanner";
 import { RelatedLinks } from "@/components/widgets/RelatedLinks";
 
 function ViewRouter({ panel }: { panel: PanelDef }) {
   switch (panel.viewType) {
+    case "ingest":
+      return <IngestPanel />;
     case "lead-intel":
       return <LeadIntelPanel />;
     case "chat":

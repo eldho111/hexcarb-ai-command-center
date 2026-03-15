@@ -36,7 +36,7 @@ export type QuickCall = {
   hint?: string;
 };
 
-export type ViewType = "chat" | "lead-intel" | "list-detail" | "dashboard" | "form-action" | "workflow" | "crud" | "runner";
+export type ViewType = "chat" | "ingest" | "lead-intel" | "list-detail" | "dashboard" | "form-action" | "workflow" | "crud" | "runner";
 
 export type ViewConfig =
   | ListDetailConfig
@@ -111,20 +111,14 @@ export const PANELS: PanelDef[] = [
     label: "Ingest Sources",
     description: "Load and index new documents into the evidence store.",
     section: "sources",
-    viewType: "form-action",
-    instructions: "Ingest research papers, PDFs, and text files into the knowledge base. Ingested documents become searchable by Chat and RAG Reasoning. Check index status to see how many chunks are indexed.",
+    viewType: "ingest",
+    instructions: "Upload documents from your browser or ingest from a server folder. Files are chunked, embedded, and stored in ChromaDB for RAG-powered chat. Supports PDF, TXT, and MD files up to 50 MB.",
     tips: [
+      "Drag and drop files directly onto the upload area.",
+      "Files are chunked, embedded with nomic-embed-text, and stored in ChromaDB.",
+      "After ingesting, use the Chat panel to query your new documents with citations.",
       "Use 'Ingest Path' to bulk-ingest a folder on the engine host.",
-      "Files are chunked, embedded, and stored in ChromaDB automatically.",
-      "After ingesting, use the Chat panel to query your new documents.",
     ],
-    viewConfig: {
-      submitEndpoint: "/ingest_path",
-      fields: [
-        { key: "path", label: "Folder Path (on engine host)", type: "text", required: true, placeholder: "/workspace/hexcarb_runtime/docs", hint: "Path to a folder on the RunPod instance containing documents to ingest." },
-      ],
-      submitLabel: "Ingest Documents",
-    } satisfies FormActionConfig,
     relatedPanels: [
       { panelId: "chat", label: "Cited Chat", description: "Query ingested documents" },
       { panelId: "reasoning", label: "Reasoning", description: "RAG reasoning over experiments" },
