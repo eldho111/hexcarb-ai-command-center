@@ -79,7 +79,7 @@ export async function streamSse(
       buffer = parts.pop() || "";
       for (const block of parts) {
         const lines = block.split("\n");
-        let evt: SseEvent = { data: "" };
+        const evt: SseEvent = { data: "" };
         const dataLines: string[] = [];
         for (const raw of lines) {
           const line = raw.trimEnd();

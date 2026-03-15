@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function InstructionBanner({
   panelId,
@@ -14,12 +14,10 @@ export function InstructionBanner({
   tips?: string[];
 }) {
   const storageKey = `hc-instr-${panelId}`;
-  const [open, setOpen] = useState(true);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(storageKey);
-    if (stored === "0") setOpen(false);
-  }, [storageKey]);
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(storageKey) !== "0";
+  });
 
   function toggle() {
     const next = !open;

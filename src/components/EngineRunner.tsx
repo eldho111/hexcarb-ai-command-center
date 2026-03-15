@@ -509,7 +509,7 @@ export function EngineRunner(props: {
                 }}
               >
                 {streamPreview
-                  .map((entry, idx) => {
+                  .map((entry) => {
                     if (entry.kind === "bad_line") {
                       return `bad_line: ${entry.line}`;
                     }

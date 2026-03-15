@@ -20,17 +20,16 @@ function getInitialTheme(): Theme {
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [sidebarOpenForPath, setSidebarOpenForPath] = useState<string | null>(null);
   const [engineStatus, setEngineStatus] = useState<EngineStatus>("unknown");
   const [appMeta, setAppMeta] = useState<AppMeta | null>(null);
-  const pathname = usePathname();
+  const sidebarOpen = sidebarOpenForPath === pathname;
 
   useEffect(() => {
-    const initial = getInitialTheme();
-    setTheme(initial);
-    document.documentElement.setAttribute("data-theme", initial);
-  }, []);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -87,10 +86,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
-
   const routeMeta = useMemo(() => {
     if (pathname === "/") {
       return {
@@ -125,7 +120,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <>
       <Sidebar
         open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={() => setSidebarOpenForPath(null)}
         engineStatus={engineStatus}
       />
 
@@ -136,7 +131,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <TopBar
           panelLabel={routeMeta.panelLabel}
           compartmentLabel={routeMeta.compartmentLabel}
-          onToggleSidebar={() => setSidebarOpen((value) => !value)}
+          onToggleSidebar={() => setSidebarOpenForPath((value) => (value === pathname ? null : pathname))}
           onToggleTheme={toggleTheme}
           theme={theme}
           engineStatus={engineStatus}

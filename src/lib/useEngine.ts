@@ -19,7 +19,7 @@ export interface EngineMutation<T = Record<string, unknown>> {
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 function engineUrl(path: string): string {
-  let p = path.startsWith("/") ? path : "/" + path;
+  const p = path.startsWith("/") ? path : "/" + path;
   return `/api/engine${p}`;
 }
 
@@ -67,12 +67,15 @@ export function useEngineGet<T = Record<string, unknown>>(
 
   useEffect(() => {
     mountedRef.current = true;
-    doFetch();
-    let timer: ReturnType<typeof setInterval> | undefined;
-    if (interval && interval > 0) {
-      timer = setInterval(doFetch, interval);
-    }
-    return () => { mountedRef.current = false; if (timer) clearInterval(timer); };
+    const kickoff = setTimeout(() => {
+      doFetch();
+    }, 0);
+    const timer = interval && interval > 0 ? setInterval(doFetch, interval) : undefined;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(kickoff);
+      if (timer) clearInterval(timer);
+    };
   }, [doFetch, interval]);
 
   return { data, loading, error, refetch: doFetch };

@@ -21,6 +21,12 @@ type PreviewRow = {
   task_ids: string[];
 };
 
+type BoardColumn = {
+  id: string;
+  title: string;
+  item_ids: string[];
+};
+
 const STORAGE_INPUTS_KEY = "hc-company-planner-inputs-v1";
 const STORAGE_CONTEXT_KEY = "hc-company-planner-context-v1";
 const PLANNER_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
@@ -809,7 +815,6 @@ export function CompanyPlannerPanel() {
   const seedPreview = parseSeedPlanPreview(seedPlansJson);
   const intakeRows: JsonRecord[] = seedPreview.items.length > 0 ? seedPreview.items : feedPreviewItems;
 
-  const plannerStats = isRecord(planningContext?.planner_stats) ? planningContext.planner_stats : {};
   const plannerItems = asRecordArray(planningContext?.planner_items);
   const nextPlans = asRecordArray(planningContext?.next_generated_plans);
   const seedPlans = asRecordArray(planningContext?.seed_plans);
@@ -825,13 +830,14 @@ export function CompanyPlannerPanel() {
   const filteredSeedPlans = seedPlans.filter((item) => itemMatches(item, searchQuery, statusFilter));
 
   const visibleIds = new Set(filteredRows.map((item) => itemId(item)));
-  const boardColumns = rawBoardColumns.length > 0
+  const boardColumns: BoardColumn[] = rawBoardColumns.length > 0
     ? rawBoardColumns
         .map((column) => ({
-          ...column,
+          id: asString(column.id, asString(column.title, stableId("column", JSON.stringify(column)))),
+          title: asString(column.title, "Lane"),
           item_ids: asStringArray(column.item_ids).filter((id) => visibleIds.has(id)),
         }))
-        .filter((column) => asStringArray(column.item_ids).length > 0)
+        .filter((column) => column.item_ids.length > 0)
     : ["active", "blocked", "planned", "review", "done"].map((status) => ({
         id: status,
         title: statusLabel(status),
