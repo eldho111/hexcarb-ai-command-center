@@ -6,8 +6,23 @@ import { engineFetch } from "@/lib/useEngine";
 
 type JsonRecord = Record<string, unknown>;
 
+type PreviewRow = {
+  plan_id: string;
+  title: string;
+  status: string;
+  kind: string;
+  priority: string;
+  horizon: string;
+  owner_id: string;
+  origin: string;
+  source_url: string;
+  goal_ids: string[];
+  task_ids: string[];
+};
+
 const STORAGE_INPUTS_KEY = "hc-company-planner-inputs-v1";
 const STORAGE_CONTEXT_KEY = "hc-company-planner-context-v1";
+const PLANNER_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 
 function isRecord(value: unknown): value is JsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -31,6 +46,104 @@ function asRecordArray(value: unknown): JsonRecord[] {
   return value.filter(isRecord);
 }
 
+function stableId(prefix: string, basis: string): string {
+  let hash = 0;
+  for (let index = 0; index < basis.length; index += 1) {
+    hash = (hash * 31 + basis.charCodeAt(index)) >>> 0;
+  }
+  return `${prefix}_${hash.toString(16)}`;
+}
+
+function inferKindFromTitle(title: string): string {
+  const text = title.toLowerCase();
+  if (/(compliance|gst|tax|remittance)/.test(text)) return "compliance_plan";
+  if (/(grant|investor|funding|ventures)/.test(text)) return "funding_plan";
+  if (/(meeting|follow-up|outreach|mou|collab)/.test(text)) return "follow_up_plan";
+  if (/(procurement|supplier|consumables|card)/.test(text)) return "procurement_plan";
+  if (/(protocol|sop|dispersion|batch|characterization)/.test(text)) return "research_protocol";
+  if (/(pricing|datasheet|market|website|linkedin)/.test(text)) return "commercial_plan";
+  if (/(engine|gpu|tools|training)/.test(text)) return "engineering_plan";
+  return "notion_page";
+}
+
+function inferPriorityFromTitle(title: string): string {
+  const text = title.toLowerCase();
+  if (/(compliance|gst|tax|meeting|follow-up|grant|payment|redistribution)/.test(text)) return "high";
+  if (/(pilot|protocol|supplier|pricing|procurement)/.test(text)) return "medium";
+  return "low";
+}
+
+function inferHorizonFromTitle(title: string): string {
+  const text = title.toLowerCase();
+  if (/(monthly|week|meeting|follow-up|slot|payment)/.test(text)) return "this_week";
+  if (/(grant|supplier|outreach|report|datasheet)/.test(text)) return "this_month";
+  return "quarter";
+}
+
+function sourceLabel(url: string): string {
+  if (!url) return "-";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function parsePlannerFeedPreview(feedMarkdown: string): PreviewRow[] {
+  const rows: PreviewRow[] = [];
+  let matchIndex = 0;
+  for (const match of feedMarkdown.matchAll(PLANNER_LINK_RE)) {
+    const title = (match[1] || "").trim();
+    const sourceUrl = (match[2] || "").trim();
+    if (!title) continue;
+    matchIndex += 1;
+    rows.push({
+      plan_id: stableId("feed", `${title}|${sourceUrl}|${matchIndex}`),
+      title,
+      status: "planned",
+      kind: inferKindFromTitle(title),
+      priority: inferPriorityFromTitle(title),
+      horizon: inferHorizonFromTitle(title),
+      owner_id: "unassigned",
+      origin: "feed",
+      source_url: sourceUrl,
+      goal_ids: [],
+      task_ids: [],
+    });
+  }
+  return rows;
+}
+
+function parseSeedPlanPreview(seedProjectsJson: string): { items: PreviewRow[]; error: string | null } {
+  if (!seedProjectsJson.trim()) return { items: [], error: null };
+  try {
+    const parsed = JSON.parse(seedProjectsJson) as unknown;
+    const rawItems = Array.isArray(parsed) ? parsed : [parsed];
+    const items = rawItems
+      .filter(isRecord)
+      .map((item, index) => {
+        const title = asString(item.title || item.objective || item.description, `Seed plan ${index + 1}`);
+        const sourceUrl = asString(item.source_url);
+        return {
+          plan_id: asString(item.plan_id, stableId("seed", `${title}|${sourceUrl}|${index + 1}`)),
+          title,
+          status: asString(item.status, "planned"),
+          kind: asString(item.kind, inferKindFromTitle(title)),
+          priority: asString(item.priority, inferPriorityFromTitle(title)),
+          horizon: asString(item.horizon, inferHorizonFromTitle(title)),
+          owner_id: asString(item.owner_id || item.owner, "unassigned"),
+          origin: asString(item.origin, "seed"),
+          source_url: sourceUrl,
+          goal_ids: asStringArray(item.goal_ids || item.related_goal_ids),
+          task_ids: asStringArray(item.task_ids || item.related_task_ids),
+        } satisfies PreviewRow;
+      });
+    return { items, error: null };
+  } catch {
+    return { items: [], error: "Seed Plans JSON is invalid." };
+  }
+}
+
 function statusTone(status: string): { background: string; color: string; border: string } {
   switch (status) {
     case "active":
@@ -48,18 +161,9 @@ function statusTone(status: string): { background: string; color: string; border
   }
 }
 
-function MetricCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
+function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div
-      className="rounded-2xl px-4 py-3"
-      style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}
-    >
+    <div className="rounded-2xl px-4 py-3" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
       <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
         {label}
       </div>
@@ -86,20 +190,14 @@ function PlannerCard({ item, compact = false }: { item: JsonRecord; compact?: bo
   const confidence = isRecord(item.automation) ? item.automation.confidence : null;
 
   return (
-    <article
-      className="rounded-2xl p-4"
-      style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)" }}
-    >
+    <article className="rounded-2xl p-4" style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
             {title}
           </h3>
           <div className="mt-1 flex flex-wrap gap-2 text-[11px]">
-            <span
-              className="rounded-full border px-2 py-0.5 font-medium"
-              style={{ background: tone.background, color: tone.color, borderColor: tone.border }}
-            >
+            <span className="rounded-full border px-2 py-0.5 font-medium" style={{ background: tone.background, color: tone.color, borderColor: tone.border }}>
               {status}
             </span>
             <span className="rounded-full border px-2 py-0.5" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
@@ -149,6 +247,108 @@ function PlannerCard({ item, compact = false }: { item: JsonRecord; compact?: bo
         </div>
       ) : null}
     </article>
+  );
+}
+
+function PlannerDatabaseTable({
+  title,
+  subtitle,
+  items,
+}: {
+  title: string;
+  subtitle: string;
+  items: JsonRecord[];
+}) {
+  return (
+    <section className="hc-card overflow-hidden p-0">
+      <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--hc-border)" }}>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+            {title}
+          </h3>
+          <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+            {subtitle}
+          </p>
+        </div>
+        <span className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
+          {items.length} rows
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="px-5 py-4 text-sm" style={{ color: "var(--hc-text-muted)" }}>
+          No planner rows yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead style={{ background: "var(--hc-bg-soft)", color: "var(--hc-text-muted)" }}>
+              <tr>
+                <th className="px-4 py-3 font-medium">Title</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Priority</th>
+                <th className="px-4 py-3 font-medium">Horizon</th>
+                <th className="px-4 py-3 font-medium">Owner</th>
+                <th className="px-4 py-3 font-medium">Source</th>
+                <th className="px-4 py-3 font-medium">Links</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => {
+                const title = asString(item.title, "Untitled plan");
+                const status = asString(item.status, "planned");
+                const tone = statusTone(status);
+                const sourceUrl = asString(item.source_url);
+                const goalIds = asStringArray(item.goal_ids);
+                const taskIds = asStringArray(item.task_ids);
+                return (
+                  <tr key={asString(item.plan_id, title)} style={{ borderTop: "1px solid var(--hc-border)" }}>
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium" style={{ color: "var(--hc-heading)" }}>
+                        {title}
+                      </div>
+                      <div className="mt-1 text-[11px]" style={{ color: "var(--hc-text-muted)" }}>
+                        {asString(item.origin, "planner")}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ background: tone.background, color: tone.color, borderColor: tone.border }}>
+                        {status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
+                      {asString(item.kind, "plan")}
+                    </td>
+                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
+                      {asString(item.priority, "medium")}
+                    </td>
+                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
+                      {asString(item.horizon, "this_week")}
+                    </td>
+                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
+                      {asString(item.owner_id, "unassigned")}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {sourceUrl ? (
+                        <a href={sourceUrl} target="_blank" rel="noreferrer" style={{ color: "var(--hc-accent)" }}>
+                          {sourceLabel(sourceUrl)}
+                        </a>
+                      ) : (
+                        <span style={{ color: "var(--hc-text-muted)" }}>-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[11px]" style={{ color: "var(--hc-text-muted)" }}>
+                      Goals {goalIds.length} | Tasks {taskIds.length}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -248,6 +448,10 @@ export function CompanyPlannerPanel() {
     }
   }
 
+  const feedPreviewItems = parsePlannerFeedPreview(feedMarkdown);
+  const seedPreview = parseSeedPlanPreview(seedPlansJson);
+  const enteredRows: JsonRecord[] = [...feedPreviewItems, ...seedPreview.items];
+
   const plannerStats = isRecord(planningContext?.planner_stats) ? planningContext.planner_stats : {};
   const plannerItems = asRecordArray(planningContext?.planner_items);
   const nextPlans = asRecordArray(planningContext?.next_generated_plans);
@@ -256,6 +460,7 @@ export function CompanyPlannerPanel() {
   const relationships = asRecordArray(planningContext?.planner_relationships);
   const itemMap = new Map(plannerItems.map((item) => [asString(item.plan_id), item]));
   const focusNow = asStringArray(planningContext?.focus_now);
+  const seedPlans = asRecordArray(planningContext?.seed_plans);
 
   return (
     <div className="space-y-6">
@@ -263,11 +468,10 @@ export function CompanyPlannerPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: "var(--hc-heading)" }}>
-              Notion-style Company Planner
+              Hexcarb - Master Project Dashboard
             </h2>
             <p className="mt-1 max-w-3xl text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
-              Paste your Notion links or operating notes and the planner will turn them into linked company plans,
-              generated next steps, and a board grouped by status.
+              Use this like your Notion master dashboard: paste project links, preview the rows you entered, then generate the connected Hexcarb project view.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -275,15 +479,15 @@ export function CompanyPlannerPanel() {
               Clear Saved Planner
             </button>
             <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={generatePlanner} disabled={loading}>
-              {loading ? "Generating..." : "Generate Company Planner"}
+              {loading ? "Generating..." : "Refresh Dashboard"}
             </button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
-              Planner Feed
+              Project Feed
             </label>
             <textarea
               className="min-h-[220px] w-full rounded-2xl px-3 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
@@ -324,31 +528,39 @@ export function CompanyPlannerPanel() {
         </div>
 
         {restored && !error && (feedMarkdown.trim() || seedPlansJson.trim() || planningContext) ? (
-          <div
-            className="mt-4 rounded-2xl px-4 py-3 text-sm"
-            style={{ background: "rgba(46, 92, 180, 0.08)", border: "1px solid rgba(46, 92, 180, 0.18)", color: "var(--hc-text)" }}
-          >
+          <div className="mt-4 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(46, 92, 180, 0.08)", border: "1px solid rgba(46, 92, 180, 0.18)", color: "var(--hc-text)" }}>
             Planner inputs and the latest generated planner context are saved locally in this browser.
           </div>
         ) : null}
 
+        {seedPreview.error ? (
+          <div className="mt-4 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(181, 125, 0, 0.10)", border: "1px solid rgba(181, 125, 0, 0.22)", color: "#8b6500" }}>
+            {seedPreview.error}
+          </div>
+        ) : null}
+
         {error ? (
-          <div
-            className="mt-4 rounded-2xl px-4 py-3 text-sm"
-            style={{ background: "rgba(245,100,84,0.08)", border: "1px solid var(--hc-active)", color: "var(--hc-active)" }}
-          >
+          <div className="mt-4 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(245,100,84,0.08)", border: "1px solid var(--hc-active)", color: "var(--hc-active)" }}>
             {error}
           </div>
         ) : null}
       </section>
 
+      {enteredRows.length > 0 || seedPlans.length > 0 ? (
+        <PlannerDatabaseTable
+          title="Project Intake"
+          subtitle="These are the project rows derived directly from what you entered, before or after dashboard generation."
+          items={seedPlans.length > 0 ? seedPlans : enteredRows}
+        />
+      ) : null}
+
       {planningContext ? (
         <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <MetricCard label="Plans" value={asNumber(plannerStats.total_items)} />
-            <MetricCard label="Generated" value={asNumber(plannerStats.generated_items)} />
-            <MetricCard label="Feed" value={asNumber(plannerStats.feed_items)} />
-            <MetricCard label="Next" value={asNumber(plannerStats.next_plans)} />
+            <MetricCard label="Projects" value={asNumber(plannerStats.total_items)} />
+            <MetricCard label="Autogenerated" value={asNumber(plannerStats.generated_items)} />
+            <MetricCard label="Imported" value={asNumber(plannerStats.feed_items)} />
+            <MetricCard label="Queued" value={asNumber(plannerStats.next_plans)} />
             <MetricCard label="Blocked" value={asNumber(plannerStats.blocked_plans)} />
             <MetricCard label="Links" value={relationships.length} />
           </section>
@@ -356,15 +568,11 @@ export function CompanyPlannerPanel() {
           {focusNow.length > 0 ? (
             <section className="hc-card p-5">
               <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                Focus Now
+                Current Focus
               </h3>
               <div className="mt-3 flex flex-wrap gap-2">
                 {focusNow.map((planId) => (
-                  <span
-                    key={planId}
-                    className="rounded-full border px-3 py-1 text-xs"
-                    style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg-soft)" }}
-                  >
+                  <span key={planId} className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-bg-soft)" }}>
                     {planId}
                   </span>
                 ))}
@@ -372,32 +580,16 @@ export function CompanyPlannerPanel() {
             </section>
           ) : null}
 
-          <section className="hc-card p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                Next Generated Plans
-              </h3>
-              <span className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
-                {nextPlans.length} queued
-              </span>
-            </div>
-            {nextPlans.length === 0 ? (
-              <p className="mt-3 text-sm" style={{ color: "var(--hc-text-muted)" }}>
-                No generated next plans yet.
-              </p>
-            ) : (
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {nextPlans.slice(0, 6).map((item) => (
-                  <PlannerCard key={asString(item.plan_id, asString(item.title))} item={item} />
-                ))}
-              </div>
-            )}
-          </section>
+          <PlannerDatabaseTable
+            title="Master Project Database"
+            subtitle="A database-style view of all master project rows returned by the engine, including generated follow-on work."
+            items={plannerItems}
+          />
 
           <section className="hc-card p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                Planner Board
+                Project Board
               </h3>
               <span className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
                 grouped by status
@@ -410,11 +602,7 @@ export function CompanyPlannerPanel() {
                 .map((column) => {
                   const itemIds = asStringArray(column.item_ids);
                   return (
-                    <div
-                      key={asString(column.id, asString(column.title))}
-                      className="rounded-3xl p-4"
-                      style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}
-                    >
+                    <div key={asString(column.id, asString(column.title))} className="rounded-3xl p-4" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
                       <div className="flex items-center justify-between gap-2">
                         <h4 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
                           {asString(column.title, "Column")}
@@ -436,14 +624,33 @@ export function CompanyPlannerPanel() {
             </div>
           </section>
 
+          <section className="hc-card p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+                Suggested Next Moves
+              </h3>
+              <span className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
+                {nextPlans.length} queued
+              </span>
+            </div>
+            {nextPlans.length === 0 ? (
+              <p className="mt-3 text-sm" style={{ color: "var(--hc-text-muted)" }}>
+                No generated next plans yet.
+              </p>
+            ) : (
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {nextPlans.slice(0, 6).map((item) => (
+                  <PlannerCard key={asString(item.plan_id, asString(item.title))} item={item} />
+                ))}
+              </div>
+            )}
+          </section>
+
           <details className="hc-card p-5">
             <summary className="cursor-pointer text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
               Raw Planning Context
             </summary>
-            <pre
-              className="mt-4 overflow-x-auto rounded-2xl p-4 text-xs"
-              style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
-            >
+            <pre className="mt-4 overflow-x-auto rounded-2xl p-4 text-xs" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}>
               {JSON.stringify(planningContext, null, 2)}
             </pre>
           </details>
@@ -451,7 +658,7 @@ export function CompanyPlannerPanel() {
       ) : (
         <section className="hc-card p-5">
           <p className="text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
-            Generate the planner to see linked feed pages, generated next plans, and a board of company work.
+            Enter your project dashboard data and refresh the dashboard to populate the master database and board.
           </p>
         </section>
       )}

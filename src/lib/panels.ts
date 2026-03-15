@@ -989,8 +989,8 @@ export const PANELS: PanelDef[] = [
     ]),
   },
   {
-    id: "company_planner", label: "Company Planner", description: "Notion-style company planning board with generated next actions.", section: "admin",
-    viewType: "company-planner", instructions: "Paste Notion links or operating notes and generate a linked company planner board backed by the engine.",
+    id: "company_planner", label: "Master Project Dashboard", description: "Hexcarb master project dashboard with database, board, and generated next actions.", section: "admin",
+    viewType: "company-planner", instructions: "Paste project links or operating notes and generate the Hexcarb master project dashboard backed by the engine.",
     tips: [
       "Paste markdown links directly from Notion export or copied page lists.",
       "Use Seed Plans JSON when you want to pre-link a page to specific goals or tasks.",
@@ -998,7 +998,7 @@ export const PANELS: PanelDef[] = [
     ],
     relatedPanels: [{ panelId: "planning", label: "Planning" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "narratives", label: "Narratives" }],
     quickCalls: withCommonCalls([
-      qc("company_planner", "Company Planner", "POST", "/planning/company", {}),
+      qc("company_planner", "Master Project Dashboard", "POST", "/planning/company", {}),
       qc("planning_next", "Next Plans", "POST", "/planning/next", { planning_context: {}, limit: 10 }),
     ]),
   },
@@ -1015,7 +1015,7 @@ export const PANELS: PanelDef[] = [
       ],
       submitLabel: "Build Planning Context",
     } satisfies FormActionConfig,
-    relatedPanels: [{ panelId: "company_planner", label: "Company Planner" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
+    relatedPanels: [{ panelId: "company_planner", label: "Master Project Dashboard" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
     quickCalls: withCommonCalls([
       qc("planning_context", "Planning Context", "POST", "/planning/context", {}),
       qc("company_planner_context", "Company Planner Context", "POST", "/planning/company", {}),
