@@ -18,6 +18,7 @@ import { WorkflowView } from "@/components/views/WorkflowView";
 import { CrudView } from "@/components/views/CrudView";
 import { ChatPanel } from "@/components/ChatPanel";
 import { LeadIntelPanel } from "@/components/LeadIntelPanel";
+import { CompanyPlannerPanel } from "@/components/CompanyPlannerPanel";
 import { EngineRunner } from "@/components/EngineRunner";
 import { IngestPanel } from "@/components/IngestPanel";
 import { InstructionBanner } from "@/components/widgets/InstructionBanner";
@@ -29,6 +30,8 @@ function ViewRouter({ panel }: { panel: PanelDef }) {
       return <IngestPanel />;
     case "lead-intel":
       return <LeadIntelPanel />;
+    case "company-planner":
+      return <CompanyPlannerPanel />;
     case "chat":
       return <ChatPanel />;
     case "list-detail":

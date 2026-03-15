@@ -36,7 +36,7 @@ export type QuickCall = {
   hint?: string;
 };
 
-export type ViewType = "chat" | "ingest" | "lead-intel" | "list-detail" | "dashboard" | "form-action" | "workflow" | "crud" | "runner";
+export type ViewType = "chat" | "ingest" | "lead-intel" | "company-planner" | "list-detail" | "dashboard" | "form-action" | "workflow" | "crud" | "runner";
 
 export type ViewConfig =
   | ListDetailConfig
@@ -989,6 +989,20 @@ export const PANELS: PanelDef[] = [
     ]),
   },
   {
+    id: "company_planner", label: "Company Planner", description: "Notion-style company planning board with generated next actions.", section: "admin",
+    viewType: "company-planner", instructions: "Paste Notion links or operating notes and generate a linked company planner board backed by the engine.",
+    tips: [
+      "Paste markdown links directly from Notion export or copied page lists.",
+      "Use Seed Plans JSON when you want to pre-link a page to specific goals or tasks.",
+      "The board groups items by status and highlights generated next plans first.",
+    ],
+    relatedPanels: [{ panelId: "planning", label: "Planning" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "narratives", label: "Narratives" }],
+    quickCalls: withCommonCalls([
+      qc("company_planner", "Company Planner", "POST", "/planning/company", {}),
+      qc("planning_next", "Next Plans", "POST", "/planning/next", { planning_context: {}, limit: 10 }),
+    ]),
+  },
+  {
     id: "planning", label: "Planning", description: "Strategic planning context and recomputation.", section: "admin",
     viewType: "form-action", instructions: "Build strategic planning context. Update constraints, recompute plans, and record assumption changes.",
     viewConfig: {
@@ -996,12 +1010,15 @@ export const PANELS: PanelDef[] = [
       fields: [
         { key: "scope", label: "Planning Scope", type: "text", required: true, placeholder: "e.g. rnd, company", defaultValue: "rnd" },
         { key: "user_id", label: "User ID (optional)", type: "text" },
+        { key: "feed_markdown", label: "Planner Feed (optional)", type: "textarea", placeholder: "Paste Notion markdown links or notes" },
+        { key: "seed_plans", label: "Seed Plans JSON (optional)", type: "json", placeholder: '[{"title":"Plan title"}]' },
       ],
       submitLabel: "Build Planning Context",
     } satisfies FormActionConfig,
-    relatedPanels: [{ panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
+    relatedPanels: [{ panelId: "company_planner", label: "Company Planner" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
     quickCalls: withCommonCalls([
       qc("planning_context", "Planning Context", "POST", "/planning/context", {}),
+      qc("company_planner_context", "Company Planner Context", "POST", "/planning/company", {}),
       qc("recompute", "Recompute Plan", "POST", "/planning/recompute", {}),
     ]),
   },
