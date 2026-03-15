@@ -19,6 +19,19 @@ type PreviewRow = {
   source_url: string;
   goal_ids: string[];
   task_ids: string[];
+  pillar: string;
+  status_note: string;
+  next_actions: string[];
+};
+
+type StructuredProjectDraft = {
+  title: string;
+  pillar: string;
+  status: string;
+  priority: string;
+  statusNote: string;
+  nextAction: string;
+  sourceUrl: string;
 };
 
 type BoardColumn = {
@@ -84,6 +97,27 @@ const DEFAULT_STRATEGIC_BETS = [
 ] as const;
 const LANE_OPTIONS = ["execution", "operations", "growth", "rnd", "engine"] as const;
 const LIFECYCLE_OPTIONS = ["discovery", "validation", "commercialization", "infrastructure", "governance"] as const;
+const STRUCTURED_PILLARS = [
+  "Partnerships",
+  "Lab & Equipment",
+  "Fundraising & Grants",
+  "Legal & Compliance",
+  "Operations",
+  "R&D & Product",
+  "Sales & BD",
+  "AI Engine",
+] as const;
+const STRUCTURED_STATUS_OPTIONS = ["planned", "active", "review", "blocked", "done"] as const;
+const STRUCTURED_PRIORITY_OPTIONS = ["critical", "high", "medium", "low"] as const;
+const EMPTY_PROJECT_DRAFT: StructuredProjectDraft = {
+  title: "",
+  pillar: "R&D & Product",
+  status: "active",
+  priority: "high",
+  statusNote: "",
+  nextAction: "",
+  sourceUrl: "",
+};
 const PLANNER_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 const TAB_ORDER: DashboardTab[] = ["overview", "intake", "database", "board", "next"];
 const TAB_LABELS: Record<DashboardTab, string> = {
@@ -180,6 +214,26 @@ function sourceLabel(url: string): string {
   } catch {
     return url;
   }
+}
+
+function itemMetrics(item: JsonRecord): JsonRecord {
+  return isRecord(item.metrics) ? item.metrics : {};
+}
+
+function itemPillar(item: JsonRecord): string {
+  return asString(item.pillar || itemMetrics(item).pillar, "-");
+}
+
+function itemStatusNote(item: JsonRecord): string {
+  return asString(item.status_note || itemMetrics(item).status_note || item.summary || item.notes);
+}
+
+function itemNextActions(item: JsonRecord): string[] {
+  return asStringArray(item.next_actions);
+}
+
+function itemNextAction(item: JsonRecord): string {
+  return itemNextActions(item)[0] || "";
 }
 
 function formatSavedAt(value: string): string {
@@ -339,6 +393,9 @@ function parsePlannerFeedPreview(feedMarkdown: string): PreviewRow[] {
       source_url: sourceUrl,
       goal_ids: [],
       task_ids: [],
+      pillar: "",
+      status_note: "",
+      next_actions: [],
     });
   }
   return rows;
@@ -354,6 +411,7 @@ function parseSeedPlanPreview(seedPlansJson: string): { items: PreviewRow[]; err
       .map((item, index) => {
         const title = asString(item.title || item.objective || item.description, `Seed plan ${index + 1}`);
         const sourceUrl = asString(item.source_url);
+        const metrics = isRecord(item.metrics) ? item.metrics : {};
         return {
           plan_id: asString(item.plan_id, stableId("seed", `${title}|${sourceUrl}|${index + 1}`)),
           title,
@@ -366,6 +424,9 @@ function parseSeedPlanPreview(seedPlansJson: string): { items: PreviewRow[]; err
           source_url: sourceUrl,
           goal_ids: asStringArray(item.goal_ids || item.related_goal_ids),
           task_ids: asStringArray(item.task_ids || item.related_task_ids),
+          pillar: asString(item.pillar || metrics.pillar),
+          status_note: asString(item.status_note || item.summary || item.notes || metrics.status_note),
+          next_actions: asStringArray(item.next_actions),
         } satisfies PreviewRow;
       });
     return { items, error: null };
@@ -601,12 +662,12 @@ function PlannerDatabaseTable({
             <thead style={{ background: "var(--hc-bg-soft)", color: "var(--hc-text-muted)" }}>
               <tr>
                 <th className="px-4 py-3 font-medium">Project</th>
+                <th className="px-4 py-3 font-medium">Pillar</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Priority</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Owner</th>
+                <th className="px-4 py-3 font-medium">Status Note</th>
+                <th className="px-4 py-3 font-medium">Next Action</th>
                 <th className="px-4 py-3 font-medium">Source</th>
-                <th className="px-4 py-3 font-medium">Links</th>
               </tr>
             </thead>
             <tbody>
@@ -617,8 +678,6 @@ function PlannerDatabaseTable({
                 const statusColors = statusTone(status);
                 const priorityColors = priorityTone(priority);
                 const selected = id === selectedPlanId;
-                const goalIds = asStringArray(item.goal_ids);
-                const taskIds = asStringArray(item.task_ids);
                 const sourceUrl = asString(item.source_url);
                 return (
                   <tr
@@ -639,6 +698,11 @@ function PlannerDatabaseTable({
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top">
+                      <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ background: "var(--hc-surface-chip)", color: "var(--hc-text)", borderColor: "var(--hc-border)" }}>
+                        {itemPillar(item)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-top">
                       <span className="rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ background: statusColors.background, color: statusColors.color, borderColor: statusColors.border }}>
                         {statusLabel(status)}
                       </span>
@@ -648,11 +712,11 @@ function PlannerDatabaseTable({
                         {priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
-                      {asString(item.kind, "plan")}
+                    <td className="px-4 py-3 align-top text-sm leading-6" style={{ color: "var(--hc-text)" }}>
+                      {itemStatusNote(item) || <span style={{ color: "var(--hc-text-muted)" }}>No note</span>}
                     </td>
-                    <td className="px-4 py-3 align-top" style={{ color: "var(--hc-text)" }}>
-                      {asString(item.owner_id, "unassigned")}
+                    <td className="px-4 py-3 align-top text-sm leading-6" style={{ color: "var(--hc-text)" }}>
+                      {itemNextAction(item) || <span style={{ color: "var(--hc-text-muted)" }}>No next action</span>}
                     </td>
                     <td className="px-4 py-3 align-top">
                       {sourceUrl ? (
@@ -662,9 +726,6 @@ function PlannerDatabaseTable({
                       ) : (
                         <span style={{ color: "var(--hc-text-muted)" }}>-</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 align-top text-[11px]" style={{ color: "var(--hc-text-muted)" }}>
-                      Goals {goalIds.length} | Tasks {taskIds.length}
                     </td>
                   </tr>
                 );
@@ -700,6 +761,8 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
   const sourceUrl = asString(item.source_url);
   const summary = asString(item.summary) || asString(item.notes) || "No summary is available yet for this project.";
   const nextActions = asStringArray(item.next_actions);
+  const pillar = itemPillar(item);
+  const statusNote = itemStatusNote(item);
   const goalIds = asStringArray(item.goal_ids);
   const taskIds = asStringArray(item.task_ids);
   const linkedPlanIds = asStringArray(item.linked_plan_ids);
@@ -746,6 +809,14 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl p-3" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
             <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+              Pillar
+            </div>
+            <div className="mt-1 text-sm font-medium" style={{ color: "var(--hc-heading)" }}>
+              {pillar}
+            </div>
+          </div>
+          <div className="rounded-2xl p-3" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+            <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
               Owner
             </div>
             <div className="mt-1 text-sm font-medium" style={{ color: "var(--hc-heading)" }}>
@@ -783,6 +854,17 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
             </div>
           </div>
         </div>
+
+        {statusNote ? (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+              Status Note
+            </div>
+            <div className="mt-2 rounded-2xl px-4 py-3 text-sm leading-7" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}>
+              {statusNote}
+            </div>
+          </div>
+        ) : null}
 
         {nextActions.length > 0 ? (
           <div>
@@ -1120,6 +1202,46 @@ function ProjectStatusOverridePanel({
   );
 }
 
+function IntakeCallout({
+  hasData,
+  onOpen,
+}: {
+  hasData: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <section className="hc-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+            Enter Projects
+          </h3>
+          <p className="mt-2 text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
+            Use Intake to paste your Notion project list or enter structured rows with Pillar, Status, Priority, Status Note, and Next Action.
+          </p>
+        </div>
+        <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={onOpen}>
+          Open Intake
+        </button>
+      </div>
+      <div className="mt-4 rounded-2xl p-4" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+        <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
+          How it works
+        </div>
+        <div className="mt-2 space-y-2 text-sm" style={{ color: "var(--hc-text)" }}>
+          <div>1. Paste your Notion markdown list into Project Feed or add structured rows.</div>
+          <div>2. Click Refresh Projects.</div>
+          <div>3. Check Project Intake and Master Project Database to confirm the items were loaded.</div>
+          <div>4. Company Status will update from the saved planner workspace.</div>
+        </div>
+        <div className="mt-3 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+          {hasData ? "A planner feed or seed plans are already present in this workspace." : "No planner data is loaded yet in this workspace."}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <section className="hc-card p-6">
@@ -1149,6 +1271,7 @@ export function CompanyPlannerPanel() {
   const [savedAt, setSavedAt] = useState("");
   const [strategicBets, setStrategicBets] = useState<string[]>([...DEFAULT_STRATEGIC_BETS]);
   const [projectOverrides, setProjectOverrides] = useState<Record<string, ProjectOverride>>({});
+  const [projectDraft, setProjectDraft] = useState<StructuredProjectDraft>(EMPTY_PROJECT_DRAFT);
 
   useEffect(() => {
     let cancelled = false;
@@ -1398,6 +1521,49 @@ export function CompanyPlannerPanel() {
   const selectedId = selectedProject ? itemId(selectedProject) : "";
   const selectedOverride = selectedId ? projectOverrides[selectedId] ?? {} : {};
 
+  function addStructuredProject() {
+    const title = projectDraft.title.trim();
+    if (!title) {
+      setError("Project title is required before adding a structured project row.");
+      setActiveTab("intake");
+      return;
+    }
+
+    let existing: unknown[] = [];
+    if (seedPlansJson.trim()) {
+      try {
+        const parsed = JSON.parse(seedPlansJson);
+        existing = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        setError("Seed Plans JSON must be valid before adding a structured project row.");
+        setActiveTab("intake");
+        return;
+      }
+    }
+
+    const nextPlan = {
+      title,
+      status: projectDraft.status,
+      priority: projectDraft.priority,
+      kind: inferKindFromTitle(title),
+      horizon: inferHorizonFromTitle(title),
+      source_url: projectDraft.sourceUrl.trim(),
+      summary: projectDraft.statusNote.trim(),
+      notes: projectDraft.statusNote.trim(),
+      next_actions: projectDraft.nextAction.trim() ? [projectDraft.nextAction.trim()] : [],
+      metrics: {
+        pillar: projectDraft.pillar,
+        status_note: projectDraft.statusNote.trim(),
+      },
+      origin: "seed",
+    };
+
+    setSeedPlansJson(JSON.stringify([...existing, nextPlan], null, 2));
+    setProjectDraft(EMPTY_PROJECT_DRAFT);
+    setError("");
+    setActiveTab("intake");
+  }
+
   function updateSelectedProjectOverride(patch: ProjectOverride) {
     if (!selectedProject) return;
     const planId = itemId(selectedProject);
@@ -1466,6 +1632,9 @@ export function CompanyPlannerPanel() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="hc-btn hc-btn-ghost text-sm" onClick={() => setActiveTab("intake")}>
+                Enter Projects
+              </button>
               <button type="button" className="hc-btn hc-btn-ghost text-sm" onClick={clearSavedPlanner}>
                 Clear Projects
               </button>
@@ -1559,6 +1728,10 @@ export function CompanyPlannerPanel() {
         <div className="space-y-6">
           {activeTab === "overview" ? (
             <>
+              <IntakeCallout
+                hasData={Boolean(feedMarkdown.trim() || seedPlansJson.trim() || planningContext)}
+                onOpen={() => setActiveTab("intake")}
+              />
               <CompanyStatusCard status={companyStatus} />
 
               <div className="grid gap-6 xl:grid-cols-2">
@@ -1720,7 +1893,7 @@ export function CompanyPlannerPanel() {
                       Project Intake
                     </h3>
                     <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
-                      Paste Notion markdown links for current projects or add structured seed plans to preload richer metadata.
+                      Paste your Notion markdown list or add structured rows that mirror your Notion dashboard columns.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs" style={{ color: "var(--hc-text-muted)" }}>
@@ -1729,18 +1902,126 @@ export function CompanyPlannerPanel() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
-                      Project Feed
-                    </label>
-                    <textarea
-                      className="min-h-[240px] w-full rounded-2xl px-3 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
-                      style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
-                      placeholder="Paste Notion markdown links or freeform operating notes here."
-                      value={feedMarkdown}
-                      onChange={(event) => setFeedMarkdown(event.target.value)}
-                    />
+                <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                        Project Feed
+                      </label>
+                      <textarea
+                        className="min-h-[240px] w-full rounded-2xl px-3 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                        style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                        placeholder="Paste the full Notion markdown project list here."
+                        value={feedMarkdown}
+                        onChange={(event) => setFeedMarkdown(event.target.value)}
+                      />
+                    </div>
+                    <div className="rounded-3xl p-4" style={{ background: "var(--hc-bg-soft)", border: "1px solid var(--hc-border)" }}>
+                      <div className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+                        Structured Project Entry
+                      </div>
+                      <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+                        Use this when you want to enter rows like your Notion table with Pillar, Status, Priority, Status Note, and Next Action.
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Project / Section
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            placeholder="Meeting with Prof. Sampath (IISc) - Dispersion Advisor"
+                            value={projectDraft.title}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, title: event.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Pillar
+                          </label>
+                          <select
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            value={projectDraft.pillar}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, pillar: event.target.value }))}
+                          >
+                            {STRUCTURED_PILLARS.map((pillar) => <option key={pillar} value={pillar}>{pillar}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Status
+                          </label>
+                          <select
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            value={projectDraft.status}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, status: event.target.value }))}
+                          >
+                            {STRUCTURED_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{humanizeSlug(status)}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Priority
+                          </label>
+                          <select
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            value={projectDraft.priority}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, priority: event.target.value }))}
+                          >
+                            {STRUCTURED_PRIORITY_OPTIONS.map((priority) => <option key={priority} value={priority}>{humanizeSlug(priority)}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Source URL
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            placeholder="Optional Notion link"
+                            value={projectDraft.sourceUrl}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, sourceUrl: event.target.value }))}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Status Note
+                          </label>
+                          <textarea
+                            className="min-h-[92px] w-full rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            value={projectDraft.statusNote}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, statusNote: event.target.value }))}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                            Next Action
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                            style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
+                            value={projectDraft.nextAction}
+                            onChange={(event) => setProjectDraft((current) => ({ ...current, nextAction: event.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={addStructuredProject}>
+                          Add Structured Row
+                        </button>
+                        <button type="button" className="hc-btn hc-btn-ghost text-sm" onClick={() => setProjectDraft(EMPTY_PROJECT_DRAFT)}>
+                          Reset Form
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div>
@@ -1772,7 +2053,7 @@ export function CompanyPlannerPanel() {
                         Seed Plans JSON
                       </label>
                       <textarea
-                        className="min-h-[180px] w-full rounded-2xl px-3 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
+                        className="min-h-[240px] w-full rounded-2xl px-3 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]"
                         style={{ background: "var(--hc-card-bg)", border: "1px solid var(--hc-border)", color: "var(--hc-text)" }}
                         placeholder='[{"title":"Thermal Battery Outreach","goal_ids":["GOAL_0001"]}]'
                         value={seedPlansJson}
