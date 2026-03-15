@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { engineFetch } from "@/lib/useEngine";
 
 type JsonRecord = Record<string, unknown>;
+
+const STORAGE_INPUTS_KEY = "hc-company-planner-inputs-v1";
+const STORAGE_CONTEXT_KEY = "hc-company-planner-context-v1";
 
 function isRecord(value: unknown): value is JsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -156,6 +159,49 @@ export function CompanyPlannerPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [planningContext, setPlanningContext] = useState<JsonRecord | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    try {
+      const rawInputs = window.localStorage.getItem(STORAGE_INPUTS_KEY);
+      if (rawInputs) {
+        const parsed = JSON.parse(rawInputs) as Record<string, unknown>;
+        if (typeof parsed.ownerId === "string") setOwnerId(parsed.ownerId);
+        if (typeof parsed.feedMarkdown === "string") setFeedMarkdown(parsed.feedMarkdown);
+        if (typeof parsed.seedPlansJson === "string") setSeedPlansJson(parsed.seedPlansJson);
+      }
+
+      const rawContext = window.localStorage.getItem(STORAGE_CONTEXT_KEY);
+      if (rawContext) {
+        const parsedContext = JSON.parse(rawContext) as unknown;
+        if (isRecord(parsedContext)) setPlanningContext(parsedContext);
+      }
+      setRestored(true);
+    } catch {
+      setRestored(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    window.localStorage.setItem(
+      STORAGE_INPUTS_KEY,
+      JSON.stringify({
+        ownerId,
+        feedMarkdown,
+        seedPlansJson,
+      }),
+    );
+  }, [ownerId, feedMarkdown, seedPlansJson, restored]);
+
+  useEffect(() => {
+    if (!restored) return;
+    if (planningContext) {
+      window.localStorage.setItem(STORAGE_CONTEXT_KEY, JSON.stringify(planningContext));
+      return;
+    }
+    window.localStorage.removeItem(STORAGE_CONTEXT_KEY);
+  }, [planningContext, restored]);
 
   async function generatePlanner() {
     setLoading(true);
@@ -190,6 +236,18 @@ export function CompanyPlannerPanel() {
     }
   }
 
+  function clearSavedPlanner() {
+    setPlanningContext(null);
+    setOwnerId("");
+    setFeedMarkdown("");
+    setSeedPlansJson("");
+    setError("");
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_INPUTS_KEY);
+      window.localStorage.removeItem(STORAGE_CONTEXT_KEY);
+    }
+  }
+
   const plannerStats = isRecord(planningContext?.planner_stats) ? planningContext.planner_stats : {};
   const plannerItems = asRecordArray(planningContext?.planner_items);
   const nextPlans = asRecordArray(planningContext?.next_generated_plans);
@@ -212,9 +270,14 @@ export function CompanyPlannerPanel() {
               generated next steps, and a board grouped by status.
             </p>
           </div>
-          <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={generatePlanner} disabled={loading}>
-            {loading ? "Generating..." : "Generate Company Planner"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="hc-btn hc-btn-ghost text-sm" onClick={clearSavedPlanner}>
+              Clear Saved Planner
+            </button>
+            <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={generatePlanner} disabled={loading}>
+              {loading ? "Generating..." : "Generate Company Planner"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -259,6 +322,15 @@ export function CompanyPlannerPanel() {
             </div>
           </div>
         </div>
+
+        {restored && !error && (feedMarkdown.trim() || seedPlansJson.trim() || planningContext) ? (
+          <div
+            className="mt-4 rounded-2xl px-4 py-3 text-sm"
+            style={{ background: "rgba(46, 92, 180, 0.08)", border: "1px solid rgba(46, 92, 180, 0.18)", color: "var(--hc-text)" }}
+          >
+            Planner inputs and the latest generated planner context are saved locally in this browser.
+          </div>
+        ) : null}
 
         {error ? (
           <div
