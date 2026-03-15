@@ -231,17 +231,17 @@ function itemMatches(item: JsonRecord, query: string, statusFilter: string): boo
 function statusTone(status: string): { background: string; color: string; border: string } {
   switch (status) {
     case "active":
-      return { background: "rgba(29, 122, 99, 0.10)", color: "#0e5a47", border: "rgba(29, 122, 99, 0.20)" };
+      return { background: "rgba(29, 122, 99, 0.14)", color: "var(--hc-green)", border: "rgba(29, 122, 99, 0.28)" };
     case "blocked":
-      return { background: "rgba(196, 82, 39, 0.10)", color: "#9e3e17", border: "rgba(196, 82, 39, 0.22)" };
+      return { background: "rgba(196, 82, 39, 0.14)", color: "var(--hc-active)", border: "rgba(196, 82, 39, 0.28)" };
     case "review":
-      return { background: "rgba(181, 125, 0, 0.10)", color: "#8b6500", border: "rgba(181, 125, 0, 0.22)" };
+      return { background: "rgba(181, 125, 0, 0.14)", color: "var(--hc-accent)", border: "rgba(181, 125, 0, 0.28)" };
     case "done":
-      return { background: "rgba(86, 94, 110, 0.10)", color: "#495365", border: "rgba(86, 94, 110, 0.18)" };
+      return { background: "var(--hc-surface-muted)", color: "var(--hc-text-muted)", border: "var(--hc-surface-muted-border)" };
     case "inbox":
-      return { background: "rgba(88, 102, 126, 0.08)", color: "#465064", border: "rgba(88, 102, 126, 0.16)" };
+      return { background: "var(--hc-surface-muted)", color: "var(--hc-text-muted)", border: "var(--hc-surface-muted-border)" };
     default:
-      return { background: "rgba(46, 92, 180, 0.10)", color: "#204f9b", border: "rgba(46, 92, 180, 0.18)" };
+      return { background: "rgba(46, 92, 180, 0.12)", color: "var(--hc-text)", border: "rgba(46, 92, 180, 0.22)" };
   }
 }
 
@@ -249,11 +249,11 @@ function priorityTone(priority: string): { background: string; color: string; bo
   switch (priority) {
     case "high":
     case "critical":
-      return { background: "rgba(245,100,84,0.10)", color: "#a33a2f", border: "rgba(245,100,84,0.22)" };
+      return { background: "rgba(245,100,84,0.14)", color: "var(--hc-active)", border: "rgba(245,100,84,0.28)" };
     case "medium":
-      return { background: "rgba(142,106,53,0.10)", color: "#7a592b", border: "rgba(142,106,53,0.22)" };
+      return { background: "rgba(142,106,53,0.14)", color: "var(--hc-accent)", border: "rgba(142,106,53,0.28)" };
     default:
-      return { background: "rgba(78,124,116,0.10)", color: "#2f655b", border: "rgba(78,124,116,0.22)" };
+      return { background: "rgba(78,124,116,0.14)", color: "var(--hc-green)", border: "rgba(78,124,116,0.28)" };
   }
 }
 
@@ -341,9 +341,9 @@ function ProjectCard({
       onClick={() => onSelect(id)}
       className="w-full rounded-2xl p-4 text-left transition-all"
       style={{
-        background: selected ? "rgba(15, 25, 36, 0.05)" : "var(--hc-card-bg)",
+        background: selected ? "var(--hc-surface-muted)" : "var(--hc-card-bg)",
         border: `1px solid ${selected ? "var(--hc-accent)" : "var(--hc-border)"}`,
-        boxShadow: selected ? "0 16px 32px rgba(15, 25, 36, 0.10)" : "none",
+        boxShadow: selected ? "var(--shadow-soft)" : "none",
       }}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -454,7 +454,7 @@ function PlannerDatabaseTable({
                     className="cursor-pointer transition-colors"
                     style={{
                       borderTop: "1px solid var(--hc-border)",
-                      background: selected ? "rgba(15, 25, 36, 0.04)" : "transparent",
+                      background: selected ? "var(--hc-surface-muted)" : "transparent",
                     }}
                   >
                     <td className="px-4 py-3 align-top">
@@ -680,7 +680,7 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
         ) : null}
 
         {automation ? (
-          <div className="rounded-2xl p-3" style={{ background: "rgba(46, 92, 180, 0.08)", border: "1px solid rgba(46, 92, 180, 0.18)" }}>
+          <div className="rounded-2xl p-3" style={{ background: "var(--hc-surface-elevated)", border: "1px solid rgba(46, 92, 180, 0.18)" }}>
             <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--hc-text-muted)" }}>
               Automation
             </div>
@@ -896,7 +896,7 @@ export function CompanyPlannerPanel() {
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at top left, rgba(142,106,53,0.18), transparent 34%), radial-gradient(circle at top right, rgba(78,124,116,0.18), transparent 28%), linear-gradient(135deg, rgba(15,25,36,0.06), rgba(15,25,36,0.0))",
+              "radial-gradient(circle at top left, rgba(142,106,53,0.18), transparent 34%), radial-gradient(circle at top right, rgba(78,124,116,0.18), transparent 28%), linear-gradient(135deg, var(--hc-surface-muted), transparent)",
           }}
         />
         <div className="relative">
@@ -988,7 +988,7 @@ export function CompanyPlannerPanel() {
         </div>
 
         {seedPreview.error ? (
-          <div className="mt-4 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(181, 125, 0, 0.10)", border: "1px solid rgba(181, 125, 0, 0.22)", color: "#8b6500" }}>
+          <div className="mt-4 rounded-2xl px-4 py-3 text-sm" style={{ background: "rgba(181, 125, 0, 0.14)", border: "1px solid rgba(181, 125, 0, 0.28)", color: "var(--hc-accent)" }}>
             {seedPreview.error}
           </div>
         ) : null}

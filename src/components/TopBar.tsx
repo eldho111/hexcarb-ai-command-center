@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type { AppMeta } from "@/lib/meta";
@@ -21,7 +22,7 @@ function Pill({ children }: { children: ReactNode }) {
       style={{
         border: "1px solid var(--hc-border)",
         color: "var(--hc-text-muted)",
-        background: "var(--hc-bg)",
+        background: "var(--hc-surface-chip)",
       }}
     >
       {children}
@@ -54,6 +55,7 @@ export default function TopBar({
 
   const buildLabel = appMeta ? `${appMeta.vercel_env} • ${appMeta.app_commit}` : "build pending";
   const gatewayLabel = appMeta ? `Gateway ${appMeta.gateway_host_label}` : "Gateway pending";
+  const onChatPanel = panelLabel === "Cited Chat";
 
   return (
     <header
@@ -67,6 +69,7 @@ export default function TopBar({
     >
       <div className="flex min-w-0 items-center gap-3">
         <button
+          type="button"
           onClick={onToggleSidebar}
           className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors lg:hidden"
           style={{ color: "var(--hc-text)" }}
@@ -102,6 +105,13 @@ export default function TopBar({
         </Pill>
         <Pill>{gatewayLabel}</Pill>
 
+        <Link href="/panel/chat" className={`hc-btn ${onChatPanel ? "hc-btn-ghost" : "hc-btn-primary"} text-xs`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          {onChatPanel ? "Chat Open" : "Open Chat"}
+        </Link>
+
         <div
           className="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
           style={{
@@ -112,7 +122,7 @@ export default function TopBar({
                 ? "rgba(78, 124, 116, 0.1)"
                 : engineStatus === "down"
                   ? "rgba(245, 100, 84, 0.1)"
-                  : "transparent",
+                  : "var(--hc-surface-chip)",
           }}
         >
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: statusColor }} />
@@ -120,11 +130,13 @@ export default function TopBar({
         </div>
 
         <button
+          type="button"
           onClick={onToggleTheme}
           className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
           style={{
             color: "var(--hc-text-muted)",
             border: "1px solid var(--hc-border)",
+            background: "var(--hc-surface-chip)",
           }}
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >

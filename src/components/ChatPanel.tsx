@@ -321,7 +321,7 @@ export function ChatPanel() {
                   style={{
                     color:
                       m.role === "user"
-                        ? "rgba(255,255,255,0.55)"
+                        ? "var(--hc-text-inverse-muted)"
                         : "var(--hc-accent)",
                   }}
                 >

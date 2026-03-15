@@ -35,10 +35,18 @@ function HexIcon() {
   );
 }
 
+function ChatIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
 function compartmentStyles(compartment: NavCompartmentId): { surface: string; border: string; color: string } {
   switch (compartment) {
     case "overview":
-      return { surface: "rgba(15,25,36,0.06)", border: "rgba(15,25,36,0.12)", color: "var(--hc-heading)" };
+      return { surface: "var(--hc-surface-muted)", border: "var(--hc-surface-muted-border)", color: "var(--hc-heading)" };
     case "projects":
       return { surface: "rgba(142,106,53,0.12)", border: "rgba(142,106,53,0.24)", color: "var(--hc-accent)" };
     case "rnd":
@@ -51,7 +59,7 @@ function compartmentStyles(compartment: NavCompartmentId): { surface: string; bo
       return { surface: "rgba(109,124,167,0.12)", border: "rgba(109,124,167,0.24)", color: "#52659a" };
     case "advanced":
     default:
-      return { surface: "rgba(15,25,36,0.08)", border: "rgba(15,25,36,0.14)", color: "var(--hc-text-muted)" };
+      return { surface: "var(--hc-surface-muted-strong)", border: "var(--hc-surface-muted-border)", color: "var(--hc-text-muted)" };
   }
 }
 
@@ -169,7 +177,7 @@ function NavGroup({
       </button>
 
       {open ? (
-        <div className="mt-2 rounded-[22px] border p-2" style={{ background: "rgba(255,255,255,0.72)", borderColor: theme.border }}>
+        <div className="mt-2 rounded-[22px] border p-2" style={{ background: "var(--hc-surface-chip)", borderColor: theme.border }}>
           {items.map((item) => {
             const isActive = item.href === activeHref;
             return (
@@ -183,10 +191,10 @@ function NavGroup({
                   fontWeight: isActive ? 600 : 500,
                 }}
               >
-                <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: isActive ? theme.color : "rgba(15,25,36,0.12)" }} />
+                <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: isActive ? theme.color : "var(--hc-surface-muted-border)" }} />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.advanced ? (
-                  <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest" style={{ background: "rgba(15,25,36,0.08)", color: "var(--hc-text-muted)" }}>
+                  <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest" style={{ background: "var(--hc-surface-muted-strong)", color: "var(--hc-text-muted)" }}>
                     Adv
                   </span>
                 ) : null}
@@ -241,6 +249,8 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
       : engineStatus === "down"
         ? "var(--hc-active)"
         : "var(--hc-text-muted)";
+  const chatTheme = compartmentStyles("rnd");
+  const chatActive = activeHref === "/panel/chat";
 
   const sidebarContent = (
     <div className="flex h-full flex-col" style={{ background: "var(--hc-bg)", borderRight: "1px solid var(--hc-border)" }}>
@@ -257,7 +267,7 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
           </div>
         </Link>
 
-        <div className="rounded-[22px] border px-4 py-3" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,246,241,0.98))", borderColor: "var(--hc-border)" }}>
+        <div className="rounded-[22px] border px-4 py-3" style={{ background: "var(--hc-surface-elevated-strong)", borderColor: "var(--hc-border)" }}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
@@ -267,27 +277,52 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
                 {engineStatus === "ok" ? "Systems ready" : engineStatus === "down" ? "Needs intervention" : "Checking live state"}
               </div>
             </div>
-            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
+            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-surface-chip)" }}>
               <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: statusDot }} />
               {engineStatus}
             </span>
           </div>
         </div>
+
+        <Link href="/panel/chat" className="block">
+          <div className="rounded-[22px] border px-4 py-3 transition-colors" style={{ background: chatActive ? chatTheme.surface : "var(--hc-surface-elevated)", borderColor: chatTheme.border }}>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border" style={{ background: chatTheme.surface, borderColor: chatTheme.border, color: chatTheme.color }}>
+                <ChatIcon />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
+                  Quick launch
+                </div>
+                <div className="mt-1 text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+                  Cited Chat
+                </div>
+                <div className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
+                  Open the main chat workspace from anywhere.
+                </div>
+              </div>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: chatTheme.surface, color: chatTheme.color }}>
+                Live
+              </span>
+            </div>
+          </div>
+        </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto pb-4">
         {COMPARTMENT_ORDER.map((compartment) => {
+          const compartmentPanels = grouped[compartment].filter((panel) => panel.id !== "chat");
           const items: NavItem[] = compartment === "overview"
             ? [
                 { id: "home", label: "Founder Dashboard", href: "/" },
-                ...grouped[compartment].map((panel) => ({
+                ...compartmentPanels.map((panel) => ({
                   id: panel.id,
                   label: panel.label,
                   href: `/panel/${panel.id}`,
                   advanced: panel.advanced,
                 })),
               ]
-            : grouped[compartment].map((panel) => ({
+            : compartmentPanels.map((panel) => ({
                 id: panel.id,
                 label: panel.label,
                 href: `/panel/${panel.id}`,

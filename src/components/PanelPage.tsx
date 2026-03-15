@@ -24,6 +24,15 @@ import { IngestPanel } from "@/components/IngestPanel";
 import { InstructionBanner } from "@/components/widgets/InstructionBanner";
 import { RelatedLinks } from "@/components/widgets/RelatedLinks";
 
+type PanelBehaviorTone = "assistant" | "native" | "reader";
+
+type PanelBehavior = {
+  label: string;
+  detail: string;
+  endpoint?: string;
+  tone: PanelBehaviorTone;
+};
+
 function ViewRouter({ panel }: { panel: PanelDef }) {
   switch (panel.viewType) {
     case "ingest":
@@ -63,8 +72,89 @@ function compartmentBadgeStyle(compartment: string): { surface: string; border: 
     case "engine":
       return { surface: "rgba(109,124,167,0.12)", border: "rgba(109,124,167,0.24)", color: "#52659a" };
     default:
-      return { surface: "rgba(15,25,36,0.06)", border: "rgba(15,25,36,0.12)", color: "var(--hc-heading)" };
+      return { surface: "var(--hc-surface-muted)", border: "var(--hc-surface-muted-border)", color: "var(--hc-heading)" };
   }
+}
+
+function behaviorStyle(tone: PanelBehaviorTone): { background: string; border: string; color: string } {
+  switch (tone) {
+    case "assistant":
+      return { background: "rgba(78,124,116,0.12)", border: "rgba(78,124,116,0.24)", color: "var(--hc-green)" };
+    case "reader":
+      return { background: "rgba(95,120,154,0.12)", border: "rgba(95,120,154,0.24)", color: "#496c8d" };
+    case "native":
+    default:
+      return { background: "var(--hc-surface-muted)", border: "var(--hc-surface-muted-border)", color: "var(--hc-text)" };
+  }
+}
+
+function describePanelBehavior(panel: PanelDef): PanelBehavior {
+  if (panel.id === "chat" || panel.viewType === "chat") {
+    return {
+      label: "Canonical chat workspace",
+      detail: "This is the main HexCarb chat window. It streams grounded responses through /chat_stream and stays available as the primary model interface.",
+      endpoint: "/chat_stream",
+      tone: "assistant",
+    };
+  }
+
+  if (panel.viewType === "dashboard" || panel.viewType === "lead-intel") {
+    return {
+      label: "Dashboard / reader",
+      detail: "This panel primarily reads live engine endpoints and presents state, health, or inventory rather than acting as a general generation tool.",
+      tone: "reader",
+    };
+  }
+
+  if (panel.viewType === "form-action") {
+    const config = panel.viewConfig as FormActionConfig | undefined;
+    if (config?.submitEndpoint === "/chat") {
+      return {
+        label: "AI assistant workflow",
+        detail: "This workflow intentionally uses the main model layer via /chat to generate guidance, drafts, or triage steps.",
+        endpoint: "/chat",
+        tone: "assistant",
+      };
+    }
+    return {
+      label: "Native tool",
+      detail: "This workflow runs a dedicated backend action instead of the general chat surface.",
+      endpoint: config?.submitEndpoint,
+      tone: "native",
+    };
+  }
+
+  if (panel.viewType === "company-planner") {
+    return {
+      label: "Native tool",
+      detail: "This workspace builds planning context through dedicated planning endpoints and can still generate AI-assisted next actions from that structured state.",
+      endpoint: "/planning/company • /planning/next",
+      tone: "native",
+    };
+  }
+
+  if (panel.viewType === "ingest") {
+    return {
+      label: "Native tool",
+      detail: "This workspace uploads and ingests source material into the engine knowledge base using dedicated ingest endpoints.",
+      endpoint: "/ingest_files • /ingest_path",
+      tone: "native",
+    };
+  }
+
+  if (panel.viewType === "runner") {
+    return {
+      label: "Native tool",
+      detail: "This panel exposes direct raw engine access for advanced diagnostics and does not depend on the general chat route.",
+      tone: "native",
+    };
+  }
+
+  return {
+    label: "Native tool",
+    detail: "This workspace uses dedicated engine endpoints and structured data flows rather than the general chat surface.",
+    tone: "native",
+  };
 }
 
 export function PanelPage(props: { panel: PanelDef }) {
@@ -76,6 +166,8 @@ export function PanelPage(props: { panel: PanelDef }) {
   const showRunner = panel.viewType === "runner";
   const theme = compartmentBadgeStyle(panel.compartment);
   const featuredCalls = useMemo(() => panel.quickCalls.slice(0, 3), [panel.quickCalls]);
+  const behavior = useMemo(() => describePanelBehavior(panel), [panel]);
+  const behaviorColors = behaviorStyle(behavior.tone);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-5 py-10">
@@ -84,7 +176,7 @@ export function PanelPage(props: { panel: PanelDef }) {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.18), transparent 26%), radial-gradient(circle at 88% 12%, rgba(78,124,116,0.14), transparent 24%), linear-gradient(135deg, rgba(15,25,36,0.06), rgba(15,25,36,0))",
+              "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.18), transparent 26%), radial-gradient(circle at 88% 12%, rgba(78,124,116,0.14), transparent 24%), linear-gradient(135deg, var(--hc-surface-muted), transparent)",
           }}
         />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
@@ -114,9 +206,25 @@ export function PanelPage(props: { panel: PanelDef }) {
                 <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
                   {compartmentLabel}
                 </span>
-                <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: "rgba(255,255,255,0.78)", borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
+                <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: "var(--hc-surface-chip)", borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
                   {panel.viewType.replace(/-/g, " ")}
                 </span>
+              </div>
+
+              <div className="mt-4 rounded-2xl border px-4 py-3" style={{ background: "var(--hc-surface-elevated)", borderColor: behaviorColors.border }}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: behaviorColors.background, color: behaviorColors.color }}>
+                    {behavior.label}
+                  </span>
+                  {behavior.endpoint ? (
+                    <span className="text-[11px] font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                      {behavior.endpoint}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                  {behavior.detail}
+                </p>
               </div>
             </div>
           </div>
@@ -136,7 +244,7 @@ export function PanelPage(props: { panel: PanelDef }) {
         {featuredCalls.length > 0 ? (
           <div className="relative mt-6 grid gap-3 md:grid-cols-3">
             {featuredCalls.map((call) => (
-              <div key={`${call.method}-${call.path}`} className="rounded-2xl border p-4" style={{ background: "rgba(255,255,255,0.82)", borderColor: "var(--hc-border)" }}>
+              <div key={`${call.method}-${call.path}`} className="rounded-2xl border p-4" style={{ background: "var(--hc-surface-elevated)", borderColor: "var(--hc-border)" }}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
                     {call.label}

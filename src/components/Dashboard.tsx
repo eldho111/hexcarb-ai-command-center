@@ -40,14 +40,14 @@ function toneStyles(tone: DashboardTone): { background: string; color: string; b
     case "critical":
       return { background: "rgba(245,100,84,0.12)", color: "var(--hc-active)", border: "rgba(245,100,84,0.24)" };
     default:
-      return { background: "rgba(15,25,36,0.06)", color: "var(--hc-text-muted)", border: "rgba(15,25,36,0.12)" };
+      return { background: "var(--hc-surface-muted)", color: "var(--hc-text-muted)", border: "var(--hc-surface-muted-border)" };
   }
 }
 
 function compartmentStyles(compartment: NavCompartmentId): { surface: string; border: string; color: string } {
   switch (compartment) {
     case "overview":
-      return { surface: "rgba(15,25,36,0.06)", border: "rgba(15,25,36,0.12)", color: "var(--hc-heading)" };
+      return { surface: "var(--hc-surface-muted)", border: "var(--hc-surface-muted-border)", color: "var(--hc-heading)" };
     case "projects":
       return { surface: "rgba(142,106,53,0.12)", border: "rgba(142,106,53,0.24)", color: "var(--hc-accent)" };
     case "rnd":
@@ -60,7 +60,7 @@ function compartmentStyles(compartment: NavCompartmentId): { surface: string; bo
       return { surface: "rgba(109,124,167,0.12)", border: "rgba(109,124,167,0.24)", color: "#52659a" };
     case "advanced":
     default:
-      return { surface: "rgba(15,25,36,0.08)", border: "rgba(15,25,36,0.14)", color: "var(--hc-text-muted)" };
+      return { surface: "var(--hc-surface-muted-strong)", border: "var(--hc-surface-muted-border)", color: "var(--hc-text-muted)" };
   }
 }
 
@@ -165,7 +165,7 @@ function MetaChip({ children }: { children: ReactNode }) {
     <span
       className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
       style={{
-        background: "rgba(255,255,255,0.78)",
+        background: "var(--hc-surface-chip)",
         border: "1px solid var(--hc-border)",
         color: "var(--hc-text-muted)",
       }}
@@ -220,7 +220,7 @@ function OrbitalMetricCard({
     <div
       className="group relative overflow-hidden rounded-[28px] border p-5 transition-transform duration-200 hover:-translate-y-0.5"
       style={{
-        background: "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,246,241,0.98))",
+        background: "var(--hc-surface-elevated-strong)",
         borderColor: colors.border,
       }}
     >
@@ -253,7 +253,7 @@ function QuickActionTile({ panel }: { panel: PanelDef }) {
     <Link href={`/panel/${panel.id}`} className="block">
       <div
         className="h-full rounded-[24px] border p-4 transition-transform duration-200 hover:-translate-y-0.5"
-        style={{ background: "rgba(255,255,255,0.82)", borderColor: theme.border }}
+        style={{ background: "var(--hc-surface-elevated)", borderColor: theme.border }}
       >
         <div className="flex items-start gap-3">
           <div
@@ -448,7 +448,7 @@ function WorkspaceCard({
   const theme = compartmentStyles(compartment);
   return (
     <Link href={href} className="block">
-      <div className="h-full rounded-[28px] border p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.82)", borderColor: theme.border }}>
+      <div className="h-full rounded-[28px] border p-5 transition-transform duration-200 hover:-translate-y-0.5" style={{ background: "var(--hc-surface-elevated)", borderColor: theme.border }}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full border" style={{ background: theme.surface, color: theme.color, borderColor: theme.border }}>
@@ -657,7 +657,7 @@ export function Dashboard() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 8% 18%, rgba(142,106,53,0.18), transparent 28%), radial-gradient(circle at 88% 16%, rgba(78,124,116,0.18), transparent 24%), radial-gradient(circle at 85% 84%, rgba(95,120,154,0.12), transparent 22%), linear-gradient(135deg, rgba(15,25,36,0.06), rgba(15,25,36,0.0))",
+              "radial-gradient(circle at 8% 18%, rgba(142,106,53,0.18), transparent 28%), radial-gradient(circle at 88% 16%, rgba(78,124,116,0.18), transparent 24%), radial-gradient(circle at 85% 84%, rgba(95,120,154,0.12), transparent 22%), linear-gradient(135deg, var(--hc-surface-muted), transparent)",
           }}
         />
         <div className="relative space-y-6">
@@ -750,7 +750,7 @@ export function Dashboard() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {snapshot.today.focus_now.length ? snapshot.today.focus_now.map((item) => (
-                  <span key={item} className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "rgba(15,25,36,0.06)", color: "var(--hc-text)" }}>
+                  <span key={item} className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "var(--hc-surface-muted)", color: "var(--hc-text)" }}>
                     {item}
                   </span>
                 )) : (

@@ -15,11 +15,18 @@
   --hc-page-bg: #f4f7fb;
   --hc-border: #cad6e2;
   --hc-card-bg: rgba(255, 255, 255, 0.72);
+  --hc-surface-chip: rgba(255, 255, 255, 0.78);
+  --hc-surface-elevated: rgba(255, 255, 255, 0.82);
+  --hc-surface-elevated-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 246, 241, 0.98));
+  --hc-surface-muted: rgba(15, 25, 36, 0.06);
+  --hc-surface-muted-strong: rgba(15, 25, 36, 0.08);
+  --hc-surface-muted-border: rgba(15, 25, 36, 0.12);
 
   /* Text */
   --hc-heading: #0f1924;
   --hc-text: #0f1924;
   --hc-text-muted: #475a6e;
+  --hc-text-inverse-muted: rgba(255, 255, 255, 0.72);
 
   /* Shadows */
   --shadow-soft: 0 10px 30px rgba(15, 25, 36, 0.08);
@@ -50,6 +57,13 @@
   --hc-text: #e6eef7;
   --hc-text-muted: #a7bccf;
   --hc-card-bg: rgba(12, 20, 29, 0.72);
+  --hc-surface-chip: rgba(16, 24, 34, 0.9);
+  --hc-surface-elevated: rgba(12, 20, 29, 0.88);
+  --hc-surface-elevated-strong: linear-gradient(180deg, rgba(18, 28, 39, 0.96), rgba(9, 15, 24, 0.98));
+  --hc-surface-muted: rgba(230, 238, 247, 0.06);
+  --hc-surface-muted-strong: rgba(230, 238, 247, 0.08);
+  --hc-surface-muted-border: rgba(230, 238, 247, 0.16);
+  --hc-text-inverse-muted: rgba(255, 255, 255, 0.78);
   --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.34);
   --shadow-lift: 0 18px 40px rgba(0, 0, 0, 0.48);
 }
