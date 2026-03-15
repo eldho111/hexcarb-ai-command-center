@@ -7,7 +7,8 @@ The single frontend source of truth is `/workspace/_github/hexcarb-ai-command-ce
 1. Make frontend changes locally in the GitHub-backed repo.
 2. Commit the changes to `main`.
 3. Push `main` to `origin`.
-4. Let Vercel deploy from GitHub.
+4. Wait for the `Frontend Guard` GitHub Action to pass.
+5. Let Vercel deploy from GitHub.
 
 ## Verify In The UI
 
