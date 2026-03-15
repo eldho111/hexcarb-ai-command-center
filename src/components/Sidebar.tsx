@@ -35,6 +35,26 @@ function HexIcon() {
   );
 }
 
+function compartmentStyles(compartment: NavCompartmentId): { surface: string; border: string; color: string } {
+  switch (compartment) {
+    case "overview":
+      return { surface: "rgba(15,25,36,0.06)", border: "rgba(15,25,36,0.12)", color: "var(--hc-heading)" };
+    case "projects":
+      return { surface: "rgba(142,106,53,0.12)", border: "rgba(142,106,53,0.24)", color: "var(--hc-accent)" };
+    case "rnd":
+      return { surface: "rgba(78,124,116,0.12)", border: "rgba(78,124,116,0.24)", color: "var(--hc-green)" };
+    case "growth":
+      return { surface: "rgba(95,120,154,0.12)", border: "rgba(95,120,154,0.24)", color: "#496c8d" };
+    case "operations":
+      return { surface: "rgba(196,129,77,0.12)", border: "rgba(196,129,77,0.24)", color: "#8a5b2f" };
+    case "engine":
+      return { surface: "rgba(109,124,167,0.12)", border: "rgba(109,124,167,0.24)", color: "#52659a" };
+    case "advanced":
+    default:
+      return { surface: "rgba(15,25,36,0.08)", border: "rgba(15,25,36,0.14)", color: "var(--hc-text-muted)" };
+  }
+}
+
 function CompartmentIcon({ compartment }: { compartment: NavCompartmentId }) {
   const props = {
     width: 16,
@@ -119,48 +139,54 @@ function NavGroup({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const hasActive = items.some((item) => item.href === activeHref);
+  const theme = compartmentStyles(compartment);
 
   return (
-    <div className="mb-1">
+    <div className="px-3 pb-2">
       <button
+        type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-colors"
-        style={{ color: hasActive ? "var(--hc-accent)" : "var(--hc-text-muted)" }}
+        className="flex w-full items-center gap-3 rounded-[22px] border px-3 py-3 text-left transition-colors"
+        style={{
+          background: hasActive ? theme.surface : "transparent",
+          borderColor: hasActive ? theme.border : "transparent",
+          color: hasActive ? theme.color : "var(--hc-text-muted)",
+        }}
       >
-        <CompartmentIcon compartment={compartment} />
-        <span className="flex-1 text-left">{COMPARTMENT_LABELS[compartment]}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
+          <CompartmentIcon compartment={compartment} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.18em]">{COMPARTMENT_LABELS[compartment]}</span>
+          <span className="mt-1 block text-xs" style={{ color: "var(--hc-text-muted)" }}>{items.length} spaces</span>
+        </span>
+        <span className="rounded-full border px-2 py-0.5 text-[10px] font-semibold" style={{ borderColor: theme.border, color: theme.color }}>
+          {items.length}
+        </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms ease" }}>
           <polyline points="4 2 8 6 4 10" />
         </svg>
       </button>
 
       {open ? (
-        <div className="ml-3 mr-2 flex flex-col gap-0.5">
+        <div className="mt-2 rounded-[22px] border p-2" style={{ background: "rgba(255,255,255,0.72)", borderColor: theme.border }}>
           {items.map((item) => {
             const isActive = item.href === activeHref;
             return (
               <Link
                 key={item.id}
                 href={item.href}
-                className="relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors"
+                className="mb-1 flex items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-colors last:mb-0"
                 style={{
-                  color: isActive ? "var(--hc-text)" : "var(--hc-text-muted)",
-                  background: isActive ? "var(--hc-bg-soft)" : "transparent",
-                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? theme.color : "var(--hc-text-muted)",
+                  background: isActive ? theme.surface : "transparent",
+                  fontWeight: isActive ? 600 : 500,
                 }}
               >
-                {isActive ? (
-                  <span
-                    className="absolute left-0 top-1/2 w-[3px] -translate-y-1/2 rounded-full"
-                    style={{ height: "60%", background: "var(--hc-accent)" }}
-                  />
-                ) : null}
+                <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: isActive ? theme.color : "rgba(15,25,36,0.12)" }} />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 {item.advanced ? (
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest"
-                    style={{ background: "rgba(15,25,36,0.08)", color: "var(--hc-text-muted)" }}
-                  >
+                  <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest" style={{ background: "rgba(15,25,36,0.08)", color: "var(--hc-text-muted)" }}>
                     Adv
                   </span>
                 ) : null}
@@ -218,11 +244,11 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
 
   const sidebarContent = (
     <div className="flex h-full flex-col" style={{ background: "var(--hc-bg)", borderRight: "1px solid var(--hc-border)" }}>
-      <div className="flex flex-col gap-2 px-5 pb-4 pt-5">
+      <div className="flex flex-col gap-3 px-5 pb-4 pt-5">
         <Link href="/" className="flex items-center gap-3 no-underline">
           <HexIcon />
           <div className="flex flex-col">
-            <span className="text-base font-bold tracking-tight leading-tight" style={{ color: "var(--hc-heading)", fontFamily: "var(--font-heading)" }}>
+            <span className="text-base font-bold leading-tight tracking-tight" style={{ color: "var(--hc-heading)", fontFamily: "var(--font-heading)" }}>
               HexCarb
             </span>
             <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "var(--hc-text-muted)" }}>
@@ -231,11 +257,21 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
           </div>
         </Link>
 
-        <div className="mt-2 rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: "var(--hc-bg-soft)", color: "var(--hc-text-muted)" }}>
-          <span className="inline-flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: statusDot }} />
-            Company cockpit <span style={{ color: statusDot, fontWeight: 600 }}>{engineStatus === "ok" ? "online" : engineStatus === "down" ? "offline" : "checking"}</span>
-          </span>
+        <div className="rounded-[22px] border px-4 py-3" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.88), rgba(248,246,241,0.98))", borderColor: "var(--hc-border)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
+                Company cockpit
+              </div>
+              <div className="mt-1 text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+                {engineStatus === "ok" ? "Systems ready" : engineStatus === "down" ? "Needs intervention" : "Checking live state"}
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
+              <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: statusDot }} />
+              {engineStatus}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -272,15 +308,8 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
         })}
       </nav>
 
-      <div
-        className="px-5 py-3 text-[10px] font-medium uppercase tracking-widest"
-        style={{
-          color: "var(--hc-text-muted)",
-          borderTop: "1px solid var(--hc-border)",
-          opacity: 0.68,
-        }}
-      >
-        GitHub to Vercel source of truth
+      <div className="px-5 py-3 text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--hc-text-muted)", borderTop: "1px solid var(--hc-border)", opacity: 0.68 }}>
+        Release flow: GitHub to Vercel
       </div>
     </div>
   );

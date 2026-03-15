@@ -85,7 +85,7 @@ export interface CompanyDashboardSnapshot {
     news_count: number;
     latest_news: DashboardListItem[];
     sales_count: number;
-    accounts_count: number;
+    finance_count: number;
   };
   rnd: {
     experiments_count: number;

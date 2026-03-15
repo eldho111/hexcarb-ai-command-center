@@ -252,8 +252,8 @@ export async function GET(req: NextRequest) {
     healthRes,
     statusRes,
     stateRes,
-    storageRes,
-    opsRes,
+    modelsRegistryRes,
+    domainsRes,
     executionHealthRes,
     weeklyPlanRes,
     riskRes,
@@ -268,7 +268,7 @@ export async function GET(req: NextRequest) {
     fundingRes,
     newsRes,
     salesRes,
-    accountsRes,
+    financeRes,
     experimentsRes,
     draftsRes,
     measurementsRes,
@@ -282,8 +282,8 @@ export async function GET(req: NextRequest) {
     safeEngine(req, "/health"),
     safeEngine(req, "/status"),
     safeEngine(req, "/state"),
-    safeEngine(req, "/storage/overview"),
-    safeEngine(req, "/ops/overview"),
+    safeEngine(req, "/models/registry"),
+    safeEngine(req, "/domains"),
     safeEngine(req, "/execution/health", { method: "POST", body: { period: "weekly" } }),
     safeEngine(req, "/execution/plan/weekly", { method: "POST", body: { scope: "company" } }),
     safeEngine(req, "/execution/risks", { method: "POST", body: { scope: "company" } }),
@@ -298,7 +298,7 @@ export async function GET(req: NextRequest) {
     safeEngine(req, "/funding/list"),
     safeEngine(req, "/news/list"),
     safeEngine(req, "/domains/sales/items"),
-    safeEngine(req, "/domains/accounts/items"),
+    safeEngine(req, "/domains/finance/items"),
     safeEngine(req, "/experiments/list"),
     safeEngine(req, "/experiments/drafts"),
     safeEngine(req, "/measurements"),
@@ -340,7 +340,7 @@ export async function GET(req: NextRequest) {
   const fundingItems = asRecordArray(asRecord(fundingRes.data)?.items);
   const newsItems = asRecordArray(asRecord(newsRes.data)?.items);
   const salesItems = asRecordArray(asRecord(salesRes.data)?.items);
-  const accountsItems = asRecordArray(asRecord(accountsRes.data)?.items);
+  const financeItems = asRecordArray(asRecord(financeRes.data)?.items);
   const experiments = asRecordArray(asRecord(experimentsRes.data)?.experiments);
   const drafts = asRecordArray(asRecord(draftsRes.data)?.drafts);
   const measurements = asRecordArray(asRecord(measurementsRes.data)?.measurements);
@@ -429,16 +429,16 @@ export async function GET(req: NextRequest) {
     }),
   );
 
-  const engineErrors = [healthRes, statusRes, stateRes, storageRes, opsRes]
+  const engineErrors = [healthRes, statusRes, stateRes, modelsRegistryRes, domainsRes]
     .map((result) => result.error)
     .filter((value): value is string => Boolean(value));
 
   const modules: CompanyDashboardSnapshot["modules"] = {
-    engine: moduleState([healthRes, statusRes, stateRes, storageRes, opsRes]),
+    engine: moduleState([healthRes, statusRes, stateRes, modelsRegistryRes, domainsRes]),
     execution: moduleState([executionHealthRes, weeklyPlanRes, riskRes, goalsRes, tasksRes]),
     projects: moduleState([planningRes, planningNextRes]),
     operations: moduleState([complianceRes, approvalsRes, notificationsRes, qualityRes]),
-    growth: moduleState([leadStatusRes, fundingRes, newsRes, salesRes, accountsRes]),
+    growth: moduleState([leadStatusRes, fundingRes, newsRes, salesRes, financeRes]),
     rnd: moduleState([experimentsRes, draftsRes, measurementsRes, trainingStatusRes, trainingReadinessRes, sourcesRes]),
     activity: moduleState([decisionsRes, narrativesRes, messagesRes]),
   };
@@ -562,7 +562,7 @@ export async function GET(req: NextRequest) {
       news_count: newsItems.length,
       latest_news: takeLatest(newsItems, 4).map((item) => feedItem(item, "/panel/news", "News item")),
       sales_count: salesItems.length,
-      accounts_count: accountsItems.length,
+      finance_count: financeItems.length,
     },
     rnd: {
       experiments_count: experiments.length,

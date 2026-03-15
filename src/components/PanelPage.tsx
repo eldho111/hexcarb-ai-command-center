@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { PanelDef } from "@/lib/panels";
 import { COMPARTMENT_LABELS } from "@/lib/panels";
@@ -50,6 +50,23 @@ function ViewRouter({ panel }: { panel: PanelDef }) {
   }
 }
 
+function compartmentBadgeStyle(compartment: string): { surface: string; border: string; color: string } {
+  switch (compartment) {
+    case "projects":
+      return { surface: "rgba(142,106,53,0.12)", border: "rgba(142,106,53,0.24)", color: "var(--hc-accent)" };
+    case "rnd":
+      return { surface: "rgba(78,124,116,0.12)", border: "rgba(78,124,116,0.24)", color: "var(--hc-green)" };
+    case "growth":
+      return { surface: "rgba(95,120,154,0.12)", border: "rgba(95,120,154,0.24)", color: "#496c8d" };
+    case "operations":
+      return { surface: "rgba(196,129,77,0.12)", border: "rgba(196,129,77,0.24)", color: "#8a5b2f" };
+    case "engine":
+      return { surface: "rgba(109,124,167,0.12)", border: "rgba(109,124,167,0.24)", color: "#52659a" };
+    default:
+      return { surface: "rgba(15,25,36,0.06)", border: "rgba(15,25,36,0.12)", color: "var(--hc-heading)" };
+  }
+}
+
 export function PanelPage(props: { panel: PanelDef }) {
   const { panel } = props;
   const compartmentLabel = COMPARTMENT_LABELS[panel.compartment] ?? panel.compartment;
@@ -57,56 +74,100 @@ export function PanelPage(props: { panel: PanelDef }) {
 
   const defaultCall = panel.quickCalls.find((call) => call.method === "GET") || panel.quickCalls[0];
   const showRunner = panel.viewType === "runner";
+  const theme = compartmentBadgeStyle(panel.compartment);
+  const featuredCalls = useMemo(() => panel.quickCalls.slice(0, 3), [panel.quickCalls]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <nav className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
-            <Link href="/" className="transition-colors hover:underline" style={{ color: "var(--hc-accent)" }}>
-              Founder Dashboard
-            </Link>
-            <span className="px-1 opacity-50">/</span>
-            <span>{compartmentLabel}</span>
-            <span className="px-1 opacity-50">/</span>
-            <span style={{ color: "var(--hc-text)" }}>{panel.label}</span>
-          </nav>
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-5 py-10">
+      <section className="hc-card relative overflow-hidden p-6 sm:p-8">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.18), transparent 26%), radial-gradient(circle at 88% 12%, rgba(78,124,116,0.14), transparent 24%), linear-gradient(135deg, rgba(15,25,36,0.06), rgba(15,25,36,0))",
+          }}
+        />
+        <div className="relative flex flex-wrap items-start justify-between gap-6">
+          <div className="flex max-w-3xl items-start gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border text-lg font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
+              {panel.label.slice(0, 2)}
+            </div>
+            <div>
+              <nav className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                <Link href="/" className="transition-colors hover:underline" style={{ color: "var(--hc-accent)" }}>
+                  Founder Dashboard
+                </Link>
+                <span className="px-1 opacity-50">/</span>
+                <span>{compartmentLabel}</span>
+                <span className="px-1 opacity-50">/</span>
+                <span style={{ color: "var(--hc-text)" }}>{panel.label}</span>
+              </nav>
 
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight" style={{ color: "var(--hc-heading)" }}>
-            {panel.label}
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--hc-text-muted)" }}>
-            {panel.description}
-          </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight" style={{ color: "var(--hc-heading)" }}>
+                {panel.label}
+              </h1>
+              <p className="mt-2 text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
+                {panel.description}
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
+                  {compartmentLabel}
+                </span>
+                <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: "rgba(255,255,255,0.78)", borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
+                  {panel.viewType.replace(/-/g, " ")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <Link href="/" className="hc-btn hc-btn-ghost text-xs">
+              Overview
+            </Link>
+            {panel.id !== "chat" ? (
+              <Link href="/panel/chat" className="hc-btn hc-btn-primary text-xs">
+                Chat
+              </Link>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/" className="hc-btn hc-btn-ghost text-xs">
-            Overview
-          </Link>
-          {panel.id !== "chat" ? (
-            <Link href="/panel/chat" className="hc-btn hc-btn-primary text-xs">
-              Chat
-            </Link>
-          ) : null}
-        </div>
-      </div>
+        {featuredCalls.length > 0 ? (
+          <div className="relative mt-6 grid gap-3 md:grid-cols-3">
+            {featuredCalls.map((call) => (
+              <div key={`${call.method}-${call.path}`} className="rounded-2xl border p-4" style={{ background: "rgba(255,255,255,0.82)", borderColor: "var(--hc-border)" }}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+                    {call.label}
+                  </span>
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, color: theme.color }}>
+                    {call.method}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+                  {call.path}
+                </div>
+                {call.hint ? (
+                  <div className="mt-2 text-[11px] leading-5" style={{ color: "var(--hc-text-muted)" }}>
+                    {call.hint}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
-      <div className="mt-6">
-        <InstructionBanner panelId={panel.id} instructions={panel.instructions} tips={panel.tips} />
-      </div>
+      <InstructionBanner panelId={panel.id} instructions={panel.instructions} tips={panel.tips} />
 
-      <div className="mt-6">
+      <div>
         <ViewRouter panel={panel} />
       </div>
 
-      {panel.relatedPanels && panel.relatedPanels.length > 0 ? (
-        <div className="mt-6">
-          <RelatedLinks links={panel.relatedPanels} />
-        </div>
-      ) : null}
+      {panel.relatedPanels && panel.relatedPanels.length > 0 ? <RelatedLinks links={panel.relatedPanels} /> : null}
 
-      <div className="mt-8">
+      <div>
         {showRunner ? (
           <div className="hc-card overflow-hidden p-0">
             <EngineRunner
@@ -118,8 +179,9 @@ export function PanelPage(props: { panel: PanelDef }) {
             />
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--hc-border)" }}>
+          <div className="overflow-hidden rounded-[22px] border" style={{ border: "1px solid var(--hc-border)" }}>
             <button
+              type="button"
               onClick={() => setRunnerOpen((value) => !value)}
               className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-black/[.03]"
               style={{ color: "var(--hc-text-muted)", background: "var(--hc-bg-soft)" }}

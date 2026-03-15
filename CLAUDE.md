@@ -128,6 +128,7 @@ Record what you changed here so the next agent has context:
 2026-03-15 Codex: Built founder dashboard, projects workspace, planning dashboard
 2026-03-15 Codex: Added frontend release guardrails (GitHub Actions + docs)
 2026-03-15 Codex: Added ui-release-strategy.md and update-path.md
+2026-03-15 Codex: Removed stale panel 404 routes, reclassified finance/R&D panels, and redesigned dashboard/sidebar/panel shell into a calmer cockpit
 ```
 
 ---
