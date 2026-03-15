@@ -1,149 +1,181 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useState } from "react";
 
 import type { PanelDef } from "@/lib/panels";
-import { isPanelLive } from "@/lib/panels";
-import { EngineRunner } from "@/components/EngineRunner";
+import { SECTION_LABELS } from "@/lib/panels";
+import type { ListDetailConfig } from "@/components/views/ListDetailView";
+import type { DashboardConfig } from "@/components/views/DashboardView";
+import type { FormActionConfig } from "@/components/views/FormActionView";
+import type { WorkflowConfig } from "@/components/views/WorkflowView";
+import type { CrudConfig } from "@/components/views/CrudView";
+
+import { ListDetailView } from "@/components/views/ListDetailView";
+import { DashboardView } from "@/components/views/DashboardView";
+import { FormActionView } from "@/components/views/FormActionView";
+import { WorkflowView } from "@/components/views/WorkflowView";
+import { CrudView } from "@/components/views/CrudView";
 import { ChatPanel } from "@/components/ChatPanel";
 import { LeadIntelPanel } from "@/components/LeadIntelPanel";
+import { EngineRunner } from "@/components/EngineRunner";
+import { InstructionBanner } from "@/components/widgets/InstructionBanner";
+import { RelatedLinks } from "@/components/widgets/RelatedLinks";
+
+function ViewRouter({ panel }: { panel: PanelDef }) {
+  switch (panel.viewType) {
+    case "lead-intel":
+      return <LeadIntelPanel />;
+    case "chat":
+      return <ChatPanel />;
+    case "list-detail":
+      return <ListDetailView config={panel.viewConfig as ListDetailConfig} />;
+    case "dashboard":
+      return <DashboardView config={panel.viewConfig as DashboardConfig} />;
+    case "form-action":
+      return <FormActionView config={panel.viewConfig as FormActionConfig} />;
+    case "workflow":
+      return <WorkflowView config={panel.viewConfig as WorkflowConfig} />;
+    case "crud":
+      return <CrudView config={panel.viewConfig as CrudConfig} />;
+    case "runner":
+    default:
+      return null; // falls through to EngineRunner below
+  }
+}
 
 export function PanelPage(props: { panel: PanelDef }) {
   const { panel } = props;
-  const live = isPanelLive(panel);
-  const defaultCall = live
-    ? panel.quickCalls.find((call) => call.method === "GET") || panel.quickCalls[0]
-    : undefined;
+  const sectionLabel = SECTION_LABELS[panel.section] ?? panel.section;
+  const [runnerOpen, setRunnerOpen] = useState(false);
 
-  const endpoints = useMemo(
-    () => panel.quickCalls.map((call) => `${call.method} ${call.path}`),
-    [panel.quickCalls],
-  );
+  const defaultCall =
+    panel.quickCalls.find((c) => c.method === "GET") || panel.quickCalls[0];
+
+  const showRunner = panel.viewType === "runner";
 
   return (
-    <div className="space-y-8">
-      <div className="hex-card px-6 py-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-xs text-[var(--hex-ink-soft)]">
-              <Link href="/" className="hover:underline">
-                Command Center
-              </Link>
-              <span className="px-2">/</span>
-              <span className="font-mono text-[var(--hex-ink-muted)]">
-                {panel.id}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold">{panel.label}</h1>
-              <span
-                className={`hex-pill ${
-                  live
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                    : "border-amber-200 bg-amber-50 text-amber-900"
-                }`}
-              >
-                {panel.availability}
-              </span>
-            </div>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--hex-ink-muted)]">
-              {panel.description}
-            </p>
-            {panel.availabilityNote ? (
-              <p className="mt-3 max-w-2xl text-sm text-[var(--hex-ink-soft)]">
-                {panel.availabilityNote}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <Link className="hex-button-outline" href="/">
-              Back to Dashboard
+    <div className="mx-auto w-full max-w-6xl px-5 py-10">
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <nav
+            className="flex items-center gap-1 text-xs font-medium"
+            style={{ color: "var(--hc-text-muted)" }}
+          >
+            <Link
+              href="/"
+              className="transition-colors hover:underline"
+              style={{ color: "var(--hc-accent)" }}
+            >
+              Console
             </Link>
-            <Link className="hex-button" href="/panel/chat">
-              Open Chat
+            <span className="px-1 opacity-50">/</span>
+            <span>{sectionLabel}</span>
+            <span className="px-1 opacity-50">/</span>
+            <span style={{ color: "var(--hc-text)" }}>{panel.label}</span>
+          </nav>
+
+          <h1
+            className="mt-3 text-2xl font-semibold tracking-tight"
+            style={{ color: "var(--hc-heading)" }}
+          >
+            {panel.label}
+          </h1>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: "var(--hc-text-muted)" }}
+          >
+            {panel.description}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Link href="/" className="hc-btn hc-btn-ghost text-xs">
+            Back
+          </Link>
+          {panel.id !== "chat" && (
+            <Link href="/panel/chat" className="hc-btn hc-btn-primary text-xs">
+              Chat
             </Link>
-          </div>
+          )}
         </div>
       </div>
 
-      {!live ? (
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <section className="hex-card px-6 py-6">
-              <div className="hex-section-title">Availability</div>
-              <h2 className="mt-2 text-xl font-semibold">
-                This panel is not yet wired to this engine build.
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--hex-ink-muted)]">
-                The console keeps this panel visible so the roadmap stays clear,
-                but the backend routes behind it are not available in the
-                current FastAPI deployment. Use one of the live panels for now
-                while we keep the unsupported surface area non-destructive.
-              </p>
-            </section>
-          </div>
+      {/* ── Instructions ────────────────────────────────────────── */}
+      <div className="mt-6">
+        <InstructionBanner
+          panelId={panel.id}
+          instructions={panel.instructions}
+          tips={panel.tips}
+        />
+      </div>
 
-          <aside className="space-y-6 lg:col-span-4">
-            <div className="hex-card px-5 py-4">
-              <div className="hex-section-title">Suggested next step</div>
-              <div className="mt-3 text-sm text-[var(--hex-ink-muted)]">
-                Try <span className="font-semibold">System Status</span> to
-                inspect the running engine, or head back to the dashboard for a
-                live panel.
-              </div>
-            </div>
-          </aside>
+      {/* ── View Content ────────────────────────────────────────── */}
+      <div className="mt-6">
+        <ViewRouter panel={panel} />
+      </div>
+
+      {/* ── Related Panels ──────────────────────────────────────── */}
+      {panel.relatedPanels != null && panel.relatedPanels.length > 0 ? (
+        <div className="mt-6">
+          <RelatedLinks links={panel.relatedPanels} />
         </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="space-y-6 lg:col-span-8">
-            {panel.id === "chat" ? <ChatPanel /> : null}
-            {panel.id === "lead_intel" ? <LeadIntelPanel /> : null}
+      ) : null}
 
+      {/* ── Advanced: API Runner (collapsible) ──────────────────── */}
+      <div className="mt-8">
+        {showRunner ? (
+          <div className="hc-card overflow-hidden p-0">
             <EngineRunner
-              title={panel.id === "chat" || panel.id === "lead_intel" ? "API Runner (Advanced)" : "API Runner"}
+              title="API Runner"
               initialMethod={defaultCall?.method}
               initialPath={defaultCall?.path}
-              initialBody={defaultCall?.body ? JSON.stringify(defaultCall.body, null, 2) : "{}"}
+              initialBody={
+                defaultCall?.body
+                  ? JSON.stringify(defaultCall.body, null, 2)
+                  : "{}"
+              }
               quickCalls={panel.quickCalls}
             />
           </div>
-
-          <aside className="space-y-6 lg:col-span-4">
-            <div className="hex-card px-5 py-4">
-              <div className="hex-section-title">Panel endpoints</div>
-              <div className="mt-3 space-y-2 text-xs text-[var(--hex-ink-muted)]">
-                {endpoints.map((endpoint) => (
-                  <div
-                    key={endpoint}
-                    className="rounded-lg border border-[var(--hex-border)] bg-white px-3 py-2 font-mono"
-                  >
-                    {endpoint}
-                  </div>
-                ))}
+        ) : (
+          <div
+            className="overflow-hidden rounded-lg"
+            style={{ border: "1px solid var(--hc-border)" }}
+          >
+            <button
+              onClick={() => setRunnerOpen(!runnerOpen)}
+              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-black/[.03]"
+              style={{ color: "var(--hc-text-muted)", background: "var(--hc-bg-soft)" }}
+            >
+              <svg
+                width="14" height="14" viewBox="0 0 14 14" fill="none"
+                style={{ transform: runnerOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms" }}
+              >
+                <path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="flex-1">Advanced: API Runner</span>
+              <span className="text-[10px] opacity-50">Direct HTTP access to engine endpoints</span>
+            </button>
+            {runnerOpen && (
+              <div style={{ borderTop: "1px solid var(--hc-border)" }}>
+                <EngineRunner
+                  title="API Runner"
+                  initialMethod={defaultCall?.method}
+                  initialPath={defaultCall?.path}
+                  initialBody={
+                    defaultCall?.body
+                      ? JSON.stringify(defaultCall.body, null, 2)
+                      : "{}"
+                  }
+                  quickCalls={panel.quickCalls}
+                />
               </div>
-            </div>
-
-            <div className="hex-card px-5 py-4">
-              <div className="hex-section-title">Notes</div>
-              <ul className="mt-3 list-disc space-y-2 pl-5 text-xs text-[var(--hex-ink-muted)]">
-                <li>
-                  All requests flow through the server-side proxy at
-                  <span className="font-mono"> /api/engine/*</span>.
-                </li>
-                <li>
-                  Streaming NDJSON and SSE endpoints are supported in the runner.
-                </li>
-                <li>
-                  If a Quick Call body needs adjustment, edit the JSON before
-                  sending.
-                </li>
-              </ul>
-            </div>
-          </aside>
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
