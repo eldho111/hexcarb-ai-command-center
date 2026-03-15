@@ -354,7 +354,7 @@ export const PANELS: PanelDef[] = [
       ],
     } satisfies DashboardConfig,
     relatedPanels: [
-      { panelId: "planning", label: "Planning" },
+      { panelId: "company_planner", label: "Master Project Dashboard" },
       { panelId: "system_status", label: "System Status" },
     ],
     quickCalls: withCommonCalls([
@@ -620,7 +620,7 @@ export const PANELS: PanelDef[] = [
     relatedPanels: [
       { panelId: "compliance", label: "Compliance" },
       { panelId: "decisions", label: "Decisions" },
-      { panelId: "planning", label: "Planning" },
+      { panelId: "company_planner", label: "Master Project Dashboard" },
     ],
     quickCalls: withCommonCalls([
       qc("plan", "Weekly Plan", "POST", "/execution/plan/weekly", { scope: "rnd" }),
@@ -965,7 +965,7 @@ export const PANELS: PanelDef[] = [
         { key: "k", label: "Max Results", type: "number", defaultValue: 5 },
       ],
     } satisfies ListDetailConfig,
-    relatedPanels: [{ panelId: "narratives", label: "Narratives" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "planning", label: "Planning" }],
+    relatedPanels: [{ panelId: "narratives", label: "Narratives" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "company_planner", label: "Master Project Dashboard" }],
     quickCalls: withCommonCalls([
       qc("list_decisions", "List Decisions", "GET", "/decisions"),
       qc("search_decisions", "Search Decisions", "POST", "/decisions/search", { query: "" }),
@@ -996,15 +996,15 @@ export const PANELS: PanelDef[] = [
       "Use Seed Plans JSON when you want to pre-link a page to specific goals or tasks.",
       "The board groups items by status and highlights generated next plans first.",
     ],
-    relatedPanels: [{ panelId: "planning", label: "Planning" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "narratives", label: "Narratives" }],
+    relatedPanels: [{ panelId: "planning_api", label: "Planning API" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "narratives", label: "Narratives" }],
     quickCalls: withCommonCalls([
       qc("company_planner", "Master Project Dashboard", "POST", "/planning/company", {}),
       qc("planning_next", "Next Plans", "POST", "/planning/next", { planning_context: {}, limit: 10 }),
     ]),
   },
   {
-    id: "planning", label: "Planning", description: "Strategic planning context and recomputation.", section: "admin",
-    viewType: "form-action", instructions: "Build strategic planning context. Update constraints, recompute plans, and record assumption changes.",
+    id: "planning_api", label: "Planning API", description: "Advanced planning context and recomputation tools.", section: "admin",
+    viewType: "form-action", instructions: "Use the low-level planning endpoints directly when you need to inspect raw planning context, recompute state, or debug planner inputs.",
     viewConfig: {
       submitEndpoint: "/planning/context",
       fields: [

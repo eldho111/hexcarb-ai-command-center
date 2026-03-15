@@ -14,11 +14,8 @@ import {
 /* ── Additional panels not yet in panels.ts ─────────────────── */
 const EXTRA_ADMIN_PANELS: { id: string; label: string }[] = [
   { id: "quality", label: "Quality" },
-  { id: "decisions", label: "Decisions" },
-  { id: "narratives", label: "Narratives" },
   { id: "measurements", label: "Measurements" },
   { id: "reasoning", label: "Reasoning" },
-  { id: "planning", label: "Planning" },
   { id: "cognition", label: "Cognition" },
 ];
 
