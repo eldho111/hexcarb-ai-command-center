@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { HttpMethod, QuickCall } from "@/lib/panels";
 import { streamNdjson, streamSse, type SseEvent } from "@/lib/stream";
-
-const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
-const METHODS_WITH_BODY: HttpMethod[] = ["POST", "PUT", "PATCH"];
 
 type StreamItem =
   | { kind: "ndjson"; item: unknown }
@@ -16,9 +13,11 @@ type StreamItem =
 function normalizeEnginePath(raw: string): string {
   let path = (raw || "").trim();
   if (!path) return "/health";
+
   if (path.startsWith("/api/engine")) {
     path = path.slice("/api/engine".length);
   }
+
   if (!path.startsWith("/")) path = "/" + path;
   return path;
 }
@@ -29,16 +28,6 @@ function prettyJson(value: unknown): string {
   } catch {
     return String(value);
   }
-}
-
-/* ── Simple JSON syntax coloring ──────────────────────────────── */
-function colorizeJson(json: string): React.ReactNode[] {
-  return json.split("\n").map((line, i) => (
-    <span key={i}>
-      {line}
-      {i < json.split("\n").length - 1 ? "\n" : ""}
-    </span>
-  ));
 }
 
 export function EngineRunner(props: {
@@ -57,16 +46,16 @@ export function EngineRunner(props: {
   } = props;
 
   const [method, setMethod] = useState<HttpMethod>(initialMethod);
-  const [path, setPath] = useState(initialPath);
-  const [bodyText, setBodyText] = useState(initialBody);
+  const [path, setPath] = useState<string>(initialPath);
+  const [bodyText, setBodyText] = useState<string>(initialBody);
 
   const [running, setRunning] = useState(false);
-  const [statusLine, setStatusLine] = useState("");
-  const [contentType, setContentType] = useState("");
-  const [error, setError] = useState("");
+  const [statusLine, setStatusLine] = useState<string>("");
+  const [contentType, setContentType] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   const [jsonOut, setJsonOut] = useState<unknown>(null);
-  const [textOut, setTextOut] = useState("");
+  const [textOut, setTextOut] = useState<string>("");
   const [streamItems, setStreamItems] = useState<StreamItem[]>([]);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -101,9 +90,11 @@ export function EngineRunner(props: {
     let body: string | undefined;
     const headers = new Headers();
 
-    if (METHODS_WITH_BODY.includes(reqMethod) && call.body !== undefined) {
-      body = JSON.stringify(call.body);
-      headers.set("content-type", "application/json; charset=utf-8");
+    if (reqMethod !== "GET" && reqMethod !== "DELETE") {
+      if (call.body !== undefined) {
+        body = JSON.stringify(call.body);
+        headers.set("content-type", "application/json; charset=utf-8");
+      }
     }
 
     let resp: Response;
@@ -160,10 +151,7 @@ export function EngineRunner(props: {
               parsed = undefined;
             }
           }
-          setStreamItems((prev) => [
-            ...prev,
-            { kind: "sse", event: evt, parsed },
-          ]);
+          setStreamItems((prev) => [...prev, { kind: "sse", event: evt, parsed }]);
         },
         abort.signal,
       );
@@ -200,11 +188,12 @@ export function EngineRunner(props: {
 
   function onRunManual() {
     setError("");
+
     const reqMethod = method;
     const normalized = normalizeEnginePath(path);
 
     let parsedBody: unknown | undefined;
-    if (METHODS_WITH_BODY.includes(reqMethod)) {
+    if (reqMethod !== "GET" && reqMethod !== "DELETE") {
       const trimmed = bodyText.trim();
       if (trimmed) {
         try {
@@ -229,27 +218,16 @@ export function EngineRunner(props: {
   }
 
   const streamPreview = streamItems.slice(-200);
-  const showBody = METHODS_WITH_BODY.includes(method);
-  const hasOutput =
-    jsonOut !== null || textOut !== "" || streamItems.length > 0 || error !== "";
 
   return (
-    <section>
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div
-        className="px-5 py-4"
-        style={{ borderBottom: "1px solid var(--hc-border)" }}
-      >
+    <section className="hex-card overflow-hidden">
+      <div className="border-b border-[var(--hex-border)] px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div
-              className="text-sm font-semibold"
-              style={{ color: "var(--hc-heading)" }}
-            >
-              {title || "API Runner"}
-            </div>
-            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
-              Calls the engine through the server-side proxy at /api/engine/*.
+            <div className="text-sm font-semibold">{title || "API Runner"}</div>
+            <div className="text-xs text-[var(--hex-ink-soft)]">
+              Calls the engine through the server-side proxy at
+              <span className="font-mono"> /api/engine/*</span>.
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -257,33 +235,22 @@ export function EngineRunner(props: {
               type="button"
               onClick={onRunManual}
               disabled={running}
-              className="hc-btn hc-btn-primary"
-              style={{ opacity: running ? 0.5 : 1 }}
+              className="hex-button"
             >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="currentColor"
-              >
-                <path d="M2 1L11 6L2 11V1Z" />
-              </svg>
-              Run
+              Send
             </button>
             <button
               type="button"
               onClick={cancel}
               disabled={!running}
-              className="hc-btn hc-btn-ghost"
-              style={{ opacity: !running ? 0.4 : 1 }}
+              className="hex-button-outline"
             >
               Cancel
             </button>
           </div>
         </div>
 
-        {/* ── Quick Calls ───────────────────────────────────────── */}
-        {quickCalls.length > 0 && (
+        {quickCalls.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {quickCalls.map((call) => (
               <button
@@ -291,91 +258,36 @@ export function EngineRunner(props: {
                 type="button"
                 onClick={() => onQuickCall(call.id)}
                 disabled={running}
-                className="hc-btn hc-btn-ghost"
-                style={{
-                  fontSize: "0.72rem",
-                  padding: "0.4rem 0.75rem",
-                  borderRadius: 999,
-                  opacity: running ? 0.5 : 1,
-                }}
+                className="hex-pill hover:border-[var(--hex-border-strong)] disabled:opacity-50"
                 title={call.hint || call.path}
               >
-                <span
-                  className="mr-1 text-[9px] font-bold"
-                  style={{
-                    color:
-                      call.method === "GET"
-                        ? "var(--hc-green)"
-                        : call.method === "POST"
-                          ? "var(--hc-accent)"
-                          : "var(--hc-active)",
-                  }}
-                >
-                  {call.method}
-                </span>
                 {call.label}
               </button>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* ── Form ────────────────────────────────────────────────── */}
-      <div className="grid gap-4 p-5 md:grid-cols-12">
-        {/* Method pill group */}
-        <div className="md:col-span-4">
-          <label
-            className="mb-1.5 block text-xs font-medium"
-            style={{ color: "var(--hc-text-muted)" }}
+      <div className="grid gap-4 p-5 lg:grid-cols-12">
+        <div className="lg:col-span-6">
+          <label className="hex-section-title">Method</label>
+          <select
+            className="hex-input mt-2 w-full"
+            value={method}
+            onChange={(e) => setMethod(e.target.value as HttpMethod)}
           >
-            Method
-          </label>
-          <div
-            className="inline-flex overflow-hidden"
-            style={{
-              border: "1px solid var(--hc-border)",
-              borderRadius: "var(--radius-sm)",
-            }}
-          >
-            {METHODS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMethod(m)}
-                className="px-3 py-2 text-xs font-semibold transition-colors"
-                style={{
-                  background:
-                    m === method ? "var(--hc-primary)" : "var(--hc-bg)",
-                  color: m === method ? "#fff" : "var(--hc-text-muted)",
-                  borderRight:
-                    m !== "DELETE"
-                      ? "1px solid var(--hc-border)"
-                      : "none",
-                }}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+          </select>
         </div>
 
-        {/* Path */}
-        <div className="md:col-span-8">
-          <label
-            className="mb-1.5 block text-xs font-medium"
-            style={{ color: "var(--hc-text-muted)" }}
-          >
-            Path
-          </label>
+        <div className="lg:col-span-6">
+          <label className="hex-section-title">Path</label>
           <input
-            className="w-full font-mono text-sm"
-            style={{
-              background: "var(--hc-bg)",
-              border: "1px solid var(--hc-border)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--hc-text)",
-              padding: "0.5rem 0.75rem",
-            }}
+            className="hex-input mt-2 w-full font-mono"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="/status"
@@ -383,162 +295,73 @@ export function EngineRunner(props: {
           />
         </div>
 
-        {/* Body */}
-        {showBody && (
-          <div className="md:col-span-12">
-            <label
-              className="mb-1.5 block text-xs font-medium"
-              style={{ color: "var(--hc-text-muted)" }}
-            >
-              JSON Body
-            </label>
+        {method !== "GET" && method !== "DELETE" ? (
+          <div className="lg:col-span-12">
+            <label className="hex-section-title">JSON Body</label>
             <textarea
-              className="w-full font-mono text-sm"
-              style={{
-                background: "var(--hc-bg)",
-                border: "1px solid var(--hc-border)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--hc-text)",
-                padding: "0.5rem 0.75rem",
-                minHeight: 140,
-                resize: "vertical",
-              }}
+              className="hex-input mt-2 min-h-[160px] w-full font-mono"
               value={bodyText}
               onChange={(e) => setBodyText(e.target.value)}
               spellCheck={false}
             />
           </div>
-        )}
+        ) : null}
 
-        {/* ── Response Area ─────────────────────────────────────── */}
-        <div className="md:col-span-12">
-          {/* Status bar */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
-              <span
-                className="font-medium"
-                style={{ color: "var(--hc-text)" }}
-              >
-                Status:
-              </span>{" "}
-              {statusLine || "\u2014"}
-            </div>
-            <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
-              <span
-                className="font-medium"
-                style={{ color: "var(--hc-text)" }}
-              >
-                Content-Type:
-              </span>{" "}
-              <span className="font-mono">{contentType || "\u2014"}</span>
-            </div>
-            {running && (
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                  style={{ background: "var(--hc-green)" }}
-                />
-                <span
-                  className="text-xs font-medium"
-                  style={{ color: "var(--hc-green)" }}
-                >
-                  Running
-                </span>
-              </div>
-            )}
+        <div className="lg:col-span-12">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--hex-ink-muted)]">
+            <span className="hex-pill">Status: {statusLine || "-"}</span>
+            <span className="hex-pill">Content-Type: {contentType || "-"}</span>
           </div>
+        </div>
 
-          {/* Error */}
-          {error && (
-            <div
-              className="mt-3 rounded-lg p-3 text-sm"
-              style={{
-                background: "rgba(245,100,84,0.08)",
-                border: "1px solid var(--hc-active)",
-                color: "var(--hc-active)",
-              }}
-            >
-              {error}
+        {error ? (
+          <div className="lg:col-span-12 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {error}
+          </div>
+        ) : null}
+
+        {streamItems.length > 0 ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">Streaming Output</div>
+            <div className="mt-2 max-h-[360px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-3 text-xs font-mono text-[var(--hex-ink-muted)]">
+              {streamPreview.map((item, idx) => {
+                if (item.kind === "bad_line") {
+                  return (
+                    <div key={idx} className="text-amber-700">
+                      bad_line: {item.line}
+                    </div>
+                  );
+                }
+                if (item.kind === "sse") {
+                  return (
+                    <div key={idx}>
+                      sse: {item.event.event || "message"} {item.event.data || ""}
+                    </div>
+                  );
+                }
+                return <div key={idx}>{prettyJson(item.item)}</div>;
+              })}
             </div>
-          )}
+          </div>
+        ) : null}
 
-          {/* JSON output */}
-          {jsonOut !== null && (
-            <pre
-              className="mt-3 overflow-auto p-4 text-xs"
-              style={{
-                background: "var(--hc-primary)",
-                color: "#d4dce6",
-                borderRadius: "var(--radius-sm)",
-                maxHeight: 560,
-              }}
-            >
-              {colorizeJson(prettyJson(jsonOut))}
+        {jsonOut !== null ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">JSON Response</div>
+            <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-4 text-xs text-[var(--hex-ink-muted)]">
+              {prettyJson(jsonOut)}
             </pre>
-          )}
+          </div>
+        ) : null}
 
-          {/* Text output */}
-          {textOut && (
-            <pre
-              className="mt-3 overflow-auto p-4 text-xs"
-              style={{
-                background: "var(--hc-primary)",
-                color: "#d4dce6",
-                borderRadius: "var(--radius-sm)",
-                maxHeight: 560,
-              }}
-            >
+        {jsonOut === null && textOut ? (
+          <div className="lg:col-span-12">
+            <div className="hex-section-title">Response</div>
+            <pre className="mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--hex-border)] bg-white p-4 text-xs text-[var(--hex-ink-muted)]">
               {textOut}
             </pre>
-          )}
-
-          {/* Stream output */}
-          {streamItems.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs" style={{ color: "var(--hc-text-muted)" }}>
-                Streaming items: {streamItems.length} (showing last{" "}
-                {streamPreview.length})
-              </div>
-              <pre
-                className="mt-2 overflow-auto p-4 text-xs"
-                style={{
-                  background: "var(--hc-primary)",
-                  color: "#d4dce6",
-                  borderRadius: "var(--radius-sm)",
-                  maxHeight: 560,
-                }}
-              >
-                {streamPreview
-                  .map((entry, idx) => {
-                    if (entry.kind === "bad_line") {
-                      return `bad_line: ${entry.line}`;
-                    }
-                    if (entry.kind === "sse") {
-                      const payload = entry.parsed ?? entry.event.data;
-                      return `sse${entry.event.event ? `(${entry.event.event})` : ""}: ${prettyJson(payload)}`;
-                    }
-                    return `ndjson: ${prettyJson(entry.item)}`;
-                  })
-                  .join("\n")}
-              </pre>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!hasOutput && (
-            <div
-              className="mt-3 p-4 text-center text-sm"
-              style={{
-                background: "var(--hc-bg-soft)",
-                border: "1px solid var(--hc-border)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--hc-text-muted)",
-              }}
-            >
-              Use Quick Calls, or enter a method/path/body and click Run.
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

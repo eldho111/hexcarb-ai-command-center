@@ -7,6 +7,7 @@ import {
   PANELS,
   SECTION_LABELS,
   SECTION_ORDER,
+  isPanelLive,
   type PanelDef,
   type PanelSection,
 } from "@/lib/panels";
@@ -19,7 +20,7 @@ type EngineState = {
 function matchPanel(panel: PanelDef, q: string): boolean {
   const query = q.trim().toLowerCase();
   if (!query) return true;
-  const hay = `${panel.id} ${panel.label} ${panel.description}`.toLowerCase();
+  const hay = `${panel.id} ${panel.label} ${panel.description} ${panel.availabilityNote || ""}`.toLowerCase();
   return hay.includes(query);
 }
 
@@ -31,7 +32,7 @@ export function Dashboard() {
     let cancelled = false;
     async function probe() {
       try {
-        const resp = await fetch("/api/engine/health", { cache: "no-store" });
+        const resp = await fetch("/api/engine/ready", { cache: "no-store" });
         if (cancelled) return;
         if (!resp.ok) {
           setEngine({ status: "down", detail: `HTTP ${resp.status}` });
@@ -47,7 +48,7 @@ export function Dashboard() {
     }
 
     void probe();
-    const t = setInterval(probe, 15_000);
+    const t = setInterval(probe, 15000);
     return () => {
       cancelled = true;
       clearInterval(t);
@@ -78,72 +79,39 @@ export function Dashboard() {
     return n;
   }, [bySection]);
 
-  const statusColor =
-    engine.status === "ok"
-      ? "bg-[var(--hc-green)]/15 text-[var(--hc-green)]"
-      : engine.status === "down"
-        ? "bg-[var(--hc-active)]/15 text-[var(--hc-active)]"
-        : "bg-[var(--hc-bg-soft)] text-[var(--hc-text-muted)]";
-
-  const statusDot =
-    engine.status === "ok"
-      ? "bg-[var(--hc-green)]"
-      : engine.status === "down"
-        ? "bg-[var(--hc-active)]"
-        : "bg-[var(--hc-text-muted)]";
-
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10">
-      {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden rounded-2xl border border-[var(--hc-border)] bg-[var(--hc-card-bg)] px-8 pb-8 pt-10 backdrop-blur-md">
-        {/* Ambient decorative gradients */}
-        <div
-          className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full opacity-30 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, var(--hc-accent) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute -right-24 -bottom-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, var(--hc-green) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute right-1/4 top-0 h-56 w-56 rounded-full opacity-15 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, var(--hc-accent) 30%, var(--hc-green) 100%)",
-          }}
-        />
+    <div className="space-y-10">
+      <section className="hex-card hex-grid relative overflow-hidden px-8 py-10">
+        <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-[var(--hex-accent)]/10 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-56 w-56 rounded-full bg-[var(--hex-accent-3)]/10 blur-3xl" />
 
         <div className="relative flex flex-col gap-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-[var(--hc-heading)] sm:text-4xl">
-                HexCarb AI Console
+              <div className="hex-section-title">HexCarb AI Engine</div>
+              <h1 className="mt-2 text-3xl font-semibold">
+                Material intelligence for carbon systems
               </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--hc-text-muted)]">
-                Command center for AI-powered carbon materials R&amp;D
+              <p className="mt-2 max-w-2xl text-sm text-[var(--hex-ink-muted)]">
+                Live panels below are wired to the current FastAPI gateway.
+                Planned panels stay visible for roadmap continuity, but they are
+                disabled until this engine build exposes the matching routes.
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span
-                className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold ${statusColor}`}
+                className={`hex-pill ${
+                  engine.status === "ok"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : engine.status === "down"
+                      ? "border-red-200 bg-red-50 text-red-900"
+                      : "border-[var(--hex-border)] text-[var(--hex-ink-muted)]"
+                }`}
                 title={engine.detail || ""}
               >
-                <span
-                  className={`inline-block h-2 w-2 rounded-full ${statusDot} ${engine.status === "ok" ? "animate-pulse" : ""}`}
-                />
                 Engine: {engine.status}
               </span>
-              <Link
-                href="/panel/system_status"
-                className="hc-btn hc-btn-ghost text-xs"
-              >
+              <Link className="hex-button-outline" href="/panel/system_status">
                 System Status
               </Link>
               <Link className="hex-button" href="/panel/chat">
@@ -152,97 +120,142 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* ── Search Bar ──────────────────────────────────── */}
-          <div className="mt-8 flex items-center gap-4">
-            <div className="relative flex-1">
-              <svg
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--hc-text-muted)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                />
-              </svg>
-              <input
-                className="w-full rounded-xl border border-[var(--hc-border)] bg-[var(--hc-bg)] py-3 pl-11 pr-4 text-sm text-[var(--hc-text)] shadow-sm placeholder:text-[var(--hc-text-muted)] focus:border-[var(--hc-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--hc-accent)]/30"
-                placeholder="Search panels... (ingest, training, drafts, compliance)"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                spellCheck={false}
-              />
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="hex-card-muted p-4">
+              <div className="text-xs text-[var(--hex-ink-soft)]">Focus</div>
+              <div className="mt-1 text-sm font-semibold">Quantum Conductivity</div>
+              <p className="mt-2 text-xs text-[var(--hex-ink-muted)]">
+                Map electron flow and structural integrity across CNT networks.
+              </p>
             </div>
-            <div className="hidden shrink-0 rounded-xl border border-[var(--hc-border)] bg-[var(--hc-bg)] px-4 py-3 text-sm font-semibold text-[var(--hc-text)] shadow-sm sm:block">
-              {visibleCount} / {PANELS.length}
+            <div className="hex-card-muted p-4">
+              <div className="text-xs text-[var(--hex-ink-soft)]">Focus</div>
+              <div className="mt-1 text-sm font-semibold">Thermal Superhighways</div>
+              <p className="mt-2 text-xs text-[var(--hex-ink-muted)]">
+                Trace heat transport, phonon coherence, and thermal optimization.
+              </p>
+            </div>
+            <div className="hex-card-muted p-4">
+              <div className="text-xs text-[var(--hex-ink-soft)]">Focus</div>
+              <div className="mt-1 text-sm font-semibold">Atomic Strength</div>
+              <p className="mt-2 text-xs text-[var(--hex-ink-muted)]">
+                Benchmark tensile resilience and failure modes at the nanoscale.
+              </p>
+            </div>
+            <div className="hex-card-muted p-4">
+              <div className="text-xs text-[var(--hex-ink-soft)]">Focus</div>
+              <div className="mt-1 text-sm font-semibold">Ultra-Low Density</div>
+              <p className="mt-2 text-xs text-[var(--hex-ink-muted)]">
+                Track lightweight architectures without performance compromise.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Panel Grid by Section ─────────────────────────────── */}
-      <div className="mt-12 space-y-12">
+      <section className="hex-card px-8 py-6">
+        <div className="grid gap-4 md:grid-cols-12">
+          <div className="md:col-span-8">
+            <div className="hex-section-title">Panel search</div>
+            <input
+              className="hex-input mt-2 w-full"
+              placeholder="Search panels (training, ingest, drafts, planned)"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+          <div className="md:col-span-4">
+            <div className="hex-section-title">Visible</div>
+            <div className="mt-2 rounded-2xl border border-[var(--hex-border)] bg-[var(--hex-panel-2)] px-4 py-4 text-sm font-semibold">
+              {visibleCount} / {PANELS.length} panels
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="space-y-10">
         {SECTION_ORDER.map((section) => {
           const panels = bySection[section];
           if (panels.length === 0) return null;
           return (
             <section key={section}>
-              <div className="mb-4 flex items-end justify-between gap-3">
-                <span className="hc-kicker">
-                  {SECTION_LABELS[section]}
-                </span>
-                <span className="text-xs tabular-nums text-[var(--hc-text-muted)]">
-                  {panels.length} panel{panels.length !== 1 ? "s" : ""}
-                </span>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <div className="hex-section-title">{SECTION_LABELS[section]}</div>
+                  <div className="text-lg font-semibold">
+                    {SECTION_LABELS[section]}
+                  </div>
+                </div>
+                <div className="text-xs text-[var(--hex-ink-soft)]">
+                  {panels.length} panels
+                </div>
               </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {panels.map((panel) => (
-                  <Link
-                    key={panel.id}
-                    href={`/panel/${panel.id}`}
-                    className="hc-card group block px-5 py-5"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold text-[var(--hc-heading)] group-hover:text-[var(--hc-accent)]">
-                          {panel.label}
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {panels.map((panel) => {
+                  const live = isPanelLive(panel);
+                  const className = `group hex-card relative overflow-hidden px-5 py-4 transition ${
+                    live
+                      ? "hover:-translate-y-0.5"
+                      : "cursor-not-allowed border-dashed opacity-80"
+                  }`;
+                  const content = (
+                    <>
+                      <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[var(--hex-accent)]/10 blur-2xl" />
+                      <div className="relative">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className={`text-sm font-semibold ${live ? "group-hover:underline" : ""}`}>
+                              {panel.label}
+                            </div>
+                            <div className="mt-1 text-xs text-[var(--hex-ink-muted)]">
+                              {panel.description}
+                            </div>
+                          </div>
+                          <span
+                            className={`hex-pill ${
+                              live
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                                : "border-amber-200 bg-amber-50 text-amber-900"
+                            }`}
+                          >
+                            {panel.availability}
+                          </span>
                         </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-[var(--hc-text-muted)]">
-                          {panel.description}
-                        </p>
+                        {panel.availabilityNote ? (
+                          <div className="mt-3 text-xs text-[var(--hex-ink-soft)]">
+                            {panel.availabilityNote}
+                          </div>
+                        ) : null}
+                        <div className="mt-3 text-[11px] font-mono text-[var(--hex-ink-soft)]">
+                          {panel.id}
+                        </div>
                       </div>
-                      {panel.quickCalls.length > 0 && (
-                        <span className="shrink-0 rounded-full bg-[var(--hc-accent)]/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--hc-accent)]">
-                          {panel.quickCalls.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-4 font-mono text-[11px] text-[var(--hc-text-muted)]/60">
-                      {panel.id}
-                    </div>
-                  </Link>
-                ))}
+                    </>
+                  );
+
+                  if (!live) {
+                    return (
+                      <div key={panel.id} className={className} aria-disabled="true">
+                        {content}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={panel.id}
+                      href={`/panel/${panel.id}`}
+                      className={className}
+                    >
+                      {content}
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           );
         })}
-      </div>
-
-      {/* ── Footer Tip ────────────────────────────────────────── */}
-      <div className="mt-14 border-t border-[var(--hc-border)] pt-6 text-xs leading-relaxed text-[var(--hc-text-muted)]">
-        Tip: set{" "}
-        <code className="rounded bg-[var(--hc-bg-soft)] px-1.5 py-0.5 font-mono text-[var(--hc-text)]">
-          HEXCARB_GATEWAY_URL
-        </code>{" "}
-        and{" "}
-        <code className="rounded bg-[var(--hc-bg-soft)] px-1.5 py-0.5 font-mono text-[var(--hc-text)]">
-          HEXCARB_GATEWAY_API_KEY
-        </code>{" "}
-        in your environment to connect to the HexCarb engine.
       </div>
     </div>
   );

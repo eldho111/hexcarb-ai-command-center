@@ -1,26 +1,24 @@
-import React from "react";
 import type { Metadata } from "next";
-import { Sora, Public_Sans } from "next/font/google";
-import "./globals.css";
-import AppShell from "./AppShell";
+import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
-const sora = Sora({
-  variable: "--font-heading",
+import "./globals.css";
+import { AppShell } from "./AppShell";
+
+const hexSans = Space_Grotesk({
+  variable: "--font-hex-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
-const publicSans = Public_Sans({
-  variable: "--font-body",
+const hexMono = JetBrains_Mono({
+  variable: "--font-hex-mono",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "HexCarb AI Console",
-  description: "Command center for the HexCarb AI engine",
+  title: "HexCarb Command Center",
+  description: "Premium console for HexCarb's AI engine.",
 };
 
 export default function RootLayout({
@@ -29,15 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${sora.variable} ${publicSans.variable} min-h-dvh antialiased`}
-        style={{
-          fontFamily: "var(--font-body), system-ui, sans-serif",
-          background: "var(--hc-page-bg)",
-          color: "var(--hc-text)",
-        }}
-      >
+    <html lang="en">
+      <body className={`${hexSans.variable} ${hexMono.variable} antialiased`}>
         <AppShell>{children}</AppShell>
       </body>
     </html>

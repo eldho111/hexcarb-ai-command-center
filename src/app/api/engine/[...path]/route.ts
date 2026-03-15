@@ -62,14 +62,17 @@ function parseBasicUsername(headerValue: string | null): string | null {
 function resolveEngineConfig(): {
   upstreamBaseUrl: string;
   apiKey: string;
+  gatewayScopes: string;
 } {
   const upstreamBaseUrl = (process.env.HEXCARB_GATEWAY_URL || "").trim();
   const apiKey = (
     process.env.HEXCARB_GATEWAY_API_KEY || process.env.HEXCARB_API_KEY || ""
   ).trim();
+  const gatewayScopes = (process.env.HEXCARB_GATEWAY_SCOPES || "*").trim();
   return {
     upstreamBaseUrl: upstreamBaseUrl || "http://127.0.0.1:8000",
     apiKey,
+    gatewayScopes,
   };
 }
 
@@ -81,7 +84,18 @@ function buildUpstreamUrl(req: Request, pathSegments: string[]): string {
   return base + path + url.search;
 }
 
-function filterRequestHeaders(req: Request, apiKey: string): Headers {
+function buildFixedUpstreamUrl(req: Request, path: string): string {
+  const { upstreamBaseUrl } = resolveEngineConfig();
+  const url = new URL(req.url);
+  const base = upstreamBaseUrl.replace(/\/+$/, "");
+  return `${base}${path}${url.search}`;
+}
+
+function filterRequestHeaders(
+  req: Request,
+  apiKey: string,
+  gatewayScopes: string,
+): Headers {
   const incoming = new Headers(req.headers);
 
   for (const key of incoming.keys()) {
@@ -90,18 +104,19 @@ function filterRequestHeaders(req: Request, apiKey: string): Headers {
     }
   }
 
-  // Never forward UI Basic Auth credentials or cookies to the engine.
   incoming.delete("authorization");
   incoming.delete("cookie");
-
-  // Client must never be allowed to set the upstream API key.
   incoming.delete("x-api-key");
+  incoming.delete("x-api-scopes");
 
   if (apiKey) {
     incoming.set("x-api-key", apiKey);
   }
 
-  // Optional: tag requests with the Basic username for audit/debug.
+  if (gatewayScopes) {
+    incoming.set("x-api-scopes", gatewayScopes);
+  }
+
   if (!incoming.get("x-api-user")) {
     const user = parseBasicUsername(req.headers.get("authorization"));
     if (user) incoming.set("x-api-user", `web:${user}`);
@@ -121,15 +136,154 @@ function filterResponseHeaders(upstream: Headers): Headers {
   return out;
 }
 
+async function fetchUpstream(
+  upstreamUrl: string,
+  method: string,
+  headers: Headers,
+  body?: ArrayBuffer,
+): Promise<Response> {
+  return fetch(upstreamUrl, {
+    method,
+    headers,
+    body,
+    redirect: "manual",
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
+}
+
+function ndjsonLine(payload: Record<string, unknown>): string {
+  return JSON.stringify(payload) + "\n";
+}
+
+function wrapChatJsonAsNdjson(payload: Record<string, unknown>): string {
+  const citations = Array.isArray(payload.citations)
+    ? payload.citations.map((item) => String(item))
+    : [];
+  const latencyMs = typeof payload.elapsed_sec === "number"
+    ? Math.round(payload.elapsed_sec * 1000)
+    : typeof payload.latency_ms === "number"
+      ? payload.latency_ms
+      : 0;
+
+  const meta = {
+    type: "meta",
+    model:
+      typeof payload.routed_model === "string"
+        ? payload.routed_model
+        : typeof payload.model === "string"
+          ? payload.model
+          : undefined,
+    selected_provider:
+      typeof payload.selected_provider === "string"
+        ? payload.selected_provider
+        : typeof payload.provider === "string"
+          ? payload.provider
+          : "ollama",
+    latency_ms: latencyMs,
+    retrieval_used: Boolean(payload.retrieval_used),
+    retrieval_count: typeof payload.retrieval_count === "number" ? payload.retrieval_count : 0,
+    citation_count:
+      typeof payload.citation_count === "number" ? payload.citation_count : citations.length,
+    warning: typeof payload.warning === "string" ? payload.warning : null,
+  };
+
+  if (payload.ok === false) {
+    return (
+      ndjsonLine(meta) +
+      ndjsonLine({
+        type: "error",
+        error: String(payload.error || "chat_error"),
+        message: String(payload.error || payload.message || "chat_error"),
+        trace_id: typeof payload.trace_id === "string" ? payload.trace_id : undefined,
+      })
+    );
+  }
+
+  return (
+    ndjsonLine(meta) +
+    ndjsonLine({
+      type: "final",
+      final: String(payload.final || payload.answer || ""),
+      citations,
+    })
+  );
+}
+
+async function handleChatStreamFallback(
+  req: NextRequest,
+  method: string,
+  headers: Headers,
+  body: ArrayBuffer | undefined,
+): Promise<Response | null> {
+  if (method !== "POST") return null;
+  const url = new URL(req.url);
+  if (!url.pathname.endsWith("/api/engine/chat_stream")) return null;
+
+  let upstreamResp: Response;
+  try {
+    upstreamResp = await fetchUpstream(buildFixedUpstreamUrl(req, "/chat_stream"), method, headers, body);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return jsonError(502, `upstream_unreachable: ${msg}`);
+  }
+
+  const contentType = upstreamResp.headers.get("content-type") || "";
+  if (upstreamResp.ok && contentType.includes("application/x-ndjson")) {
+    return new Response(upstreamResp.body, {
+      status: upstreamResp.status,
+      headers: filterResponseHeaders(upstreamResp.headers),
+    });
+  }
+
+  let fallbackResp: Response;
+  try {
+    fallbackResp = await fetchUpstream(buildFixedUpstreamUrl(req, "/chat"), method, headers, body);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return jsonError(502, `upstream_unreachable: ${msg}`);
+  }
+
+  const fallbackText = await fallbackResp.text();
+  if (!fallbackResp.ok) {
+    return new Response(fallbackText || await upstreamResp.text(), {
+      status: fallbackResp.status,
+      headers: filterResponseHeaders(fallbackResp.headers),
+    });
+  }
+
+  try {
+    const parsed = JSON.parse(fallbackText) as unknown;
+    if (isRecord(parsed)) {
+      return new Response(wrapChatJsonAsNdjson(parsed), {
+        status: 200,
+        headers: {
+          "content-type": "application/x-ndjson; charset=utf-8",
+          "cache-control": "no-store",
+          "x-hexcarb-chat-fallback": "chat_json_wrapped",
+        },
+      });
+    }
+  } catch {
+    // Fall through to raw text response.
+  }
+
+  return new Response(fallbackText, {
+    status: fallbackResp.status,
+    headers: filterResponseHeaders(fallbackResp.headers),
+  });
+}
+
 async function handle(req: NextRequest, ctx: RouteContext) {
-  const { apiKey, upstreamBaseUrl } = resolveEngineConfig();
+  const { apiKey, gatewayScopes } = resolveEngineConfig();
 
   const upstreamEnv = (process.env.HEXCARB_GATEWAY_URL || "").trim();
   if (process.env.NODE_ENV === "production" && !upstreamEnv) {
     return jsonError(500, "HEXCARB_GATEWAY_URL is not set");
   }
 
-  // Fail closed in prod if API key is missing; allow local dev without it.
   if (!apiKey && process.env.NODE_ENV === "production") {
     return jsonError(500, "HEXCARB_GATEWAY_API_KEY is not set");
   }
@@ -140,15 +294,16 @@ async function handle(req: NextRequest, ctx: RouteContext) {
   const method = req.method.toUpperCase();
   const hasBody = method !== "GET" && method !== "HEAD";
   const body = hasBody ? await req.arrayBuffer() : undefined;
+  const headers = filterRequestHeaders(req, apiKey, gatewayScopes);
+
+  const chatFallback = await handleChatStreamFallback(req, method, headers, body);
+  if (chatFallback) {
+    return chatFallback;
+  }
 
   let upstreamResp: Response;
   try {
-    upstreamResp = await fetch(upstreamUrl, {
-      method,
-      headers: filterRequestHeaders(req, apiKey),
-      body,
-      redirect: "manual",
-    });
+    upstreamResp = await fetchUpstream(upstreamUrl, method, headers, body);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return jsonError(502, `upstream_unreachable: ${msg}`);
