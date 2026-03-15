@@ -9,9 +9,10 @@ export default async function PanelRoute({
   params: Promise<{ panelId: string }>;
 }) {
   const { panelId } = await params;
-  if (panelId === "planning") {
-    redirect("/panel/company_planner");
+  if (panelId === "planning" || panelId === "company_planner") {
+    redirect("/panel/projects");
   }
+
   const panel = getPanelById(panelId);
   if (!panel) notFound();
   return <PanelPage panel={panel} />;

@@ -1,12 +1,13 @@
 "use client";
 
 const VARIANT_MAP: Record<string, string> = {
-  ok: "success", done: "success", completed: "success", approved: "success",
+  success: "success", ok: "success", done: "success", completed: "success", approved: "success",
   active: "success", running: "success", healthy: "success", true: "success",
-  pending: "warning", open: "warning", waiting: "warning", idle: "warning",
-  draft: "warning", queued: "warning",
-  rejected: "error", failed: "error", error: "error", down: "error",
-  critical: "error", false: "error", overdue: "error",
+  warning: "warning", pending: "warning", open: "warning", waiting: "warning", idle: "warning",
+  draft: "warning", queued: "warning", planned: "warning", review: "warning", unread: "warning", degraded: "warning",
+  error: "error", rejected: "error", failed: "error", down: "error",
+  critical: "error", false: "error", overdue: "error", blocked: "error",
+  info: "info", unknown: "info", archived: "info",
 };
 
 const COLORS: Record<string, { bg: string; fg: string; dot: string }> = {

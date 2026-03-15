@@ -45,6 +45,15 @@ export type ViewConfig =
   | WorkflowConfig
   | CrudConfig;
 
+export type NavCompartmentId =
+  | "overview"
+  | "projects"
+  | "rnd"
+  | "growth"
+  | "operations"
+  | "engine"
+  | "advanced";
+
 export type PanelDef = {
   id: string;
   label: string;
@@ -56,6 +65,13 @@ export type PanelDef = {
   instructions: string;
   tips?: string[];
   relatedPanels?: RelatedLinkDef[];
+  compartment: NavCompartmentId;
+  priority?: number;
+  advanced?: boolean;
+};
+
+type PanelDraft = Omit<PanelDef, "compartment"> & {
+  compartment?: NavCompartmentId;
 };
 
 /* ── Constants ─────────────────────────────────────────────────── */
@@ -76,6 +92,26 @@ export const SECTION_LABELS: Record<PanelSection, string> = {
   experiments: "Experiments",
   dataset_training: "Training & Data",
   admin: "Admin",
+};
+
+export const COMPARTMENT_ORDER: NavCompartmentId[] = [
+  "overview",
+  "projects",
+  "rnd",
+  "growth",
+  "operations",
+  "engine",
+  "advanced",
+];
+
+export const COMPARTMENT_LABELS: Record<NavCompartmentId, string> = {
+  overview: "Overview",
+  projects: "Projects & Execution",
+  rnd: "R&D & Knowledge",
+  growth: "Growth & Market",
+  operations: "Operations & Governance",
+  engine: "Engine & Infrastructure",
+  advanced: "Advanced",
 };
 
 /* ── Helpers ───────────────────────────────────────────────────── */
@@ -103,7 +139,7 @@ function withCommonCalls(calls: QuickCall[]): QuickCall[] {
    PANEL DEFINITIONS
    ══════════════════════════════════════════════════════════════════ */
 
-export const PANELS: PanelDef[] = [
+const RAW_PANELS: PanelDraft[] = [
 
   /* ── SOURCES ─────────────────────────────────────────────────── */
   {
@@ -354,7 +390,7 @@ export const PANELS: PanelDef[] = [
       ],
     } satisfies DashboardConfig,
     relatedPanels: [
-      { panelId: "company_planner", label: "Master Project Dashboard" },
+      { panelId: "projects", label: "Projects" },
       { panelId: "system_status", label: "System Status" },
     ],
     quickCalls: withCommonCalls([
@@ -620,7 +656,7 @@ export const PANELS: PanelDef[] = [
     relatedPanels: [
       { panelId: "compliance", label: "Compliance" },
       { panelId: "decisions", label: "Decisions" },
-      { panelId: "company_planner", label: "Master Project Dashboard" },
+      { panelId: "projects", label: "Projects" },
     ],
     quickCalls: withCommonCalls([
       qc("plan", "Weekly Plan", "POST", "/execution/plan/weekly", { scope: "rnd" }),
@@ -965,7 +1001,7 @@ export const PANELS: PanelDef[] = [
         { key: "k", label: "Max Results", type: "number", defaultValue: 5 },
       ],
     } satisfies ListDetailConfig,
-    relatedPanels: [{ panelId: "narratives", label: "Narratives" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "company_planner", label: "Master Project Dashboard" }],
+    relatedPanels: [{ panelId: "narratives", label: "Narratives" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "projects", label: "Projects" }],
     quickCalls: withCommonCalls([
       qc("list_decisions", "List Decisions", "GET", "/decisions"),
       qc("search_decisions", "Search Decisions", "POST", "/decisions/search", { query: "" }),
@@ -989,8 +1025,8 @@ export const PANELS: PanelDef[] = [
     ]),
   },
   {
-    id: "company_planner", label: "Master Project Dashboard", description: "Hexcarb master project dashboard with database, board, and generated next actions.", section: "admin",
-    viewType: "company-planner", instructions: "Paste project links or operating notes and generate the Hexcarb master project dashboard backed by the engine.",
+    id: "projects", label: "Projects", description: "Company project workspace with linked plans, boards, and generated next actions.", section: "admin",
+    viewType: "company-planner", instructions: "Paste Notion links or operating notes and turn them into a linked HexCarb projects workspace backed by the engine.",
     tips: [
       "Paste markdown links directly from Notion export or copied page lists.",
       "Use Seed Plans JSON when you want to pre-link a page to specific goals or tasks.",
@@ -998,7 +1034,7 @@ export const PANELS: PanelDef[] = [
     ],
     relatedPanels: [{ panelId: "planning_api", label: "Planning API" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "narratives", label: "Narratives" }],
     quickCalls: withCommonCalls([
-      qc("company_planner", "Master Project Dashboard", "POST", "/planning/company", {}),
+      qc("projects", "Projects", "POST", "/planning/company", {}),
       qc("planning_next", "Next Plans", "POST", "/planning/next", { planning_context: {}, limit: 10 }),
     ]),
   },
@@ -1015,10 +1051,10 @@ export const PANELS: PanelDef[] = [
       ],
       submitLabel: "Build Planning Context",
     } satisfies FormActionConfig,
-    relatedPanels: [{ panelId: "company_planner", label: "Master Project Dashboard" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
+    relatedPanels: [{ panelId: "projects", label: "Projects" }, { panelId: "weekly_plan", label: "Weekly Plan" }, { panelId: "decisions", label: "Decisions" }, { panelId: "cognition", label: "Cognition" }],
     quickCalls: withCommonCalls([
       qc("planning_context", "Planning Context", "POST", "/planning/context", {}),
-      qc("company_planner_context", "Company Planner Context", "POST", "/planning/company", {}),
+      qc("projects_context", "Projects Context", "POST", "/planning/company", {}),
       qc("recompute", "Recompute Plan", "POST", "/planning/recompute", {}),
     ]),
   },
@@ -1034,10 +1070,67 @@ export const PANELS: PanelDef[] = [
   },
 ];
 
+const PANEL_ENHANCEMENTS: Record<string, { compartment: NavCompartmentId; priority?: number; advanced?: boolean }> = {
+  doc_ingest: { compartment: "rnd", priority: 2 },
+  chat: { compartment: "rnd", priority: 1 },
+  system_status: { compartment: "engine", priority: 1 },
+  telemetry: { compartment: "engine", priority: 2 },
+  capabilities: { compartment: "engine", priority: 3 },
+  cognition: { compartment: "engine", priority: 6 },
+  engine_repair: { compartment: "engine", priority: 7 },
+  lead_intel: { compartment: "growth", priority: 1 },
+  cloud: { compartment: "engine", priority: 4 },
+  system_state: { compartment: "engine", priority: 5 },
+  experiment_drafts: { compartment: "rnd", priority: 4 },
+  experiment_form: { compartment: "rnd", priority: 3 },
+  lab_items: { compartment: "rnd", priority: 8 },
+  plot: { compartment: "rnd", priority: 9 },
+  scout: { compartment: "rnd", priority: 7 },
+  measurements: { compartment: "rnd", priority: 5 },
+  reasoning: { compartment: "rnd", priority: 6 },
+  weekly_plan: { compartment: "projects", priority: 2 },
+  training: { compartment: "rnd", priority: 10 },
+  news: { compartment: "growth", priority: 6 },
+  funding: { compartment: "growth", priority: 5 },
+  compliance: { compartment: "operations", priority: 1 },
+  approvals: { compartment: "projects", priority: 3 },
+  notifications: { compartment: "operations", priority: 6 },
+  messages: { compartment: "operations", priority: 7 },
+  overseer: { compartment: "overview", priority: 1 },
+  domain_hr: { compartment: "operations", priority: 5 },
+  domain_procurement: { compartment: "operations", priority: 3 },
+  domain_assets: { compartment: "operations", priority: 4 },
+  domain_sales: { compartment: "growth", priority: 2 },
+  sales_email_generator: { compartment: "growth", priority: 4 },
+  domain_accounts: { compartment: "growth", priority: 3 },
+  quality: { compartment: "operations", priority: 2 },
+  decisions: { compartment: "projects", priority: 4 },
+  narratives: { compartment: "projects", priority: 5 },
+  projects: { compartment: "projects", priority: 1 },
+  planning_api: { compartment: "advanced", priority: 1, advanced: true },
+  admin_scaffold: { compartment: "advanced", priority: 2, advanced: true },
+};
+
+export const PANELS: PanelDef[] = RAW_PANELS.map((panel) => {
+  const enhancement = PANEL_ENHANCEMENTS[panel.id] || { compartment: "advanced" as NavCompartmentId };
+  return {
+    ...panel,
+    compartment: enhancement.compartment,
+    priority: enhancement.priority,
+    advanced: enhancement.advanced ?? false,
+  } as PanelDef;
+});
+
+const PANEL_ALIASES: Record<string, string> = {
+  company_planner: "projects",
+  planning: "projects",
+};
+
 /* ── Lookup helpers ────────────────────────────────────────────── */
 
 export function getPanelById(panelId: string): PanelDef | null {
-  return PANELS.find((p) => p.id === panelId) || null;
+  const resolvedPanelId = PANEL_ALIASES[panelId] || panelId;
+  return PANELS.find((panel) => panel.id === resolvedPanelId) || null;
 }
 
 export function getPanelsBySection(): Record<PanelSection, PanelDef[]> {
@@ -1051,4 +1144,18 @@ export function getPanelsBySection(): Record<PanelSection, PanelDef[]> {
 /** @deprecated Use getPanelsBySection instead */
 export function panelsBySection(): Record<PanelSection, PanelDef[]> {
   return getPanelsBySection();
+}
+
+export function getPanelsByCompartment(): Record<NavCompartmentId, PanelDef[]> {
+  const out: Record<NavCompartmentId, PanelDef[]> = {
+    overview: [],
+    projects: [],
+    rnd: [],
+    growth: [],
+    operations: [],
+    engine: [],
+    advanced: [],
+  };
+  for (const panel of PANELS) out[panel.compartment].push(panel);
+  return out;
 }

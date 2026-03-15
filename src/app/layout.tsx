@@ -1,4 +1,4 @@
-import React from "react";
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Sora, Public_Sans } from "next/font/google";
 import "./globals.css";
@@ -19,14 +19,14 @@ const publicSans = Public_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "HexCarb AI Console",
-  description: "Command center for the HexCarb AI engine",
+  title: "HexCarb AI Engine",
+  description: "Founder dashboard and company operating console for HexCarb AI Engine",
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>

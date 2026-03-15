@@ -537,7 +537,7 @@ function ProjectDetailPanel({ item }: { item: JsonRecord | null }) {
           Project Detail
         </div>
         <div className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
-          Selected project context for the Hexcarb planning dashboard.
+          Selected project context for the HexCarb projects workspace.
         </div>
       </div>
       <div className="space-y-5 p-5">
@@ -898,19 +898,19 @@ export function CompanyPlannerPanel() {
             <div className="max-w-3xl">
               <div className="hc-kicker">Hexcarb AI Engine</div>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight" style={{ color: "var(--hc-heading)" }}>
-                Planning Dashboard
+                Projects Workspace
               </h2>
               <p className="mt-3 text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
-                Master view for Hexcarb projects, imported Notion plans, linked execution work, and AI-generated next actions.
-                Use intake to add projects, then manage them through the database, board, and next-move queue.
+                Operational workspace for HexCarb projects, imported Notion plans, linked execution work, and AI-generated next actions.
+                Use intake to add or refresh projects, then manage them through the database, board, and next-move queue.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className="hc-btn hc-btn-ghost text-sm" onClick={clearSavedPlanner}>
-                Clear Dashboard
+                Clear Projects
               </button>
               <button type="button" className="hc-btn hc-btn-primary text-sm" onClick={generatePlanner} disabled={loading}>
-                {loading ? "Refreshing..." : "Refresh Dashboard"}
+                {loading ? "Refreshing..." : "Refresh Projects"}
               </button>
             </div>
           </div>
@@ -1154,7 +1154,7 @@ export function CompanyPlannerPanel() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                      Project Intake Composer
+                      Project Intake
                     </h3>
                     <p className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
                       Paste Notion markdown links for current projects or add structured seed plans to preload richer metadata.

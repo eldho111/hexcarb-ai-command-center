@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+
 import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
-import { getPanelById } from "@/lib/panels";
+import type { AppMeta } from "@/lib/meta";
+import { COMPARTMENT_LABELS, getPanelById } from "@/lib/panels";
 
 type Theme = "light" | "dark";
 type EngineStatus = "ok" | "down" | "unknown";
@@ -17,13 +19,13 @@ function getInitialTheme(): Theme {
   return "light";
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [engineStatus, setEngineStatus] = useState<EngineStatus>("unknown");
+  const [appMeta, setAppMeta] = useState<AppMeta | null>(null);
   const pathname = usePathname();
 
-  /* ── Theme management ─────────────────────────────────────── */
   useEffect(() => {
     const initial = getInitialTheme();
     setTheme(initial);
@@ -39,13 +41,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  /* ── Engine polling ────────────────────────────────────────── */
   useEffect(() => {
     let mounted = true;
 
     async function checkEngine() {
       try {
         const res = await fetch("/api/engine/health", {
+          cache: "no-store",
           signal: AbortSignal.timeout(8000),
         });
         if (!mounted) return;
@@ -55,26 +57,68 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
     }
 
-    checkEngine();
-    const interval = setInterval(checkEngine, 15_000);
+    void checkEngine();
+    const interval = setInterval(checkEngine, 15000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
   }, []);
 
-  /* ── Close mobile sidebar on route change ──────────────────── */
+  useEffect(() => {
+    let mounted = true;
+    async function loadMeta() {
+      try {
+        const res = await fetch("/api/meta", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!mounted || !res.ok) return;
+        const payload = (await res.json()) as AppMeta;
+        if (mounted) setAppMeta(payload);
+      } catch {
+        if (mounted) setAppMeta(null);
+      }
+    }
+
+    void loadMeta();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
 
-  /* ── Derive panel label from route ─────────────────────────── */
-  const panelLabel = useMemo(() => {
-    if (!pathname?.startsWith("/panel/")) return undefined;
+  const routeMeta = useMemo(() => {
+    if (pathname === "/") {
+      return {
+        panelLabel: "Founder Dashboard",
+        compartmentLabel: COMPARTMENT_LABELS.overview,
+      };
+    }
+
+    if (!pathname?.startsWith("/panel/")) {
+      return {
+        panelLabel: undefined,
+        compartmentLabel: undefined,
+      };
+    }
+
     const panelId = pathname.split("/panel/")[1]?.split("/")[0];
-    if (!panelId) return undefined;
+    if (!panelId) {
+      return {
+        panelLabel: undefined,
+        compartmentLabel: undefined,
+      };
+    }
+
     const panel = getPanelById(panelId);
-    return panel?.label ?? panelId.replace(/_/g, " ");
+    return {
+      panelLabel: panel?.label ?? panelId.replace(/_/g, " "),
+      compartmentLabel: panel ? COMPARTMENT_LABELS[panel.compartment] : "Workspace",
+    };
   }, [pathname]);
 
   return (
@@ -86,21 +130,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       />
 
       <div
-        className="flex flex-col min-h-dvh transition-[margin] duration-200"
+        className="flex min-h-dvh flex-col transition-[margin] duration-200"
         style={{ marginLeft: "var(--sidebar-offset, 0px)" }}
       >
         <TopBar
-          panelLabel={panelLabel}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          panelLabel={routeMeta.panelLabel}
+          compartmentLabel={routeMeta.compartmentLabel}
+          onToggleSidebar={() => setSidebarOpen((value) => !value)}
           onToggleTheme={toggleTheme}
           theme={theme}
           engineStatus={engineStatus}
+          appMeta={appMeta}
         />
 
         <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
 
-      {/* Push content right on desktop where sidebar is fixed */}
       <style>{`
         @media (min-width: 1024px) {
           :root {
