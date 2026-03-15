@@ -27,6 +27,13 @@ type BoardColumn = {
   item_ids: string[];
 };
 
+type PlannerWorkspaceResponse = {
+  found?: boolean;
+  persisted?: boolean;
+  workspace?: unknown;
+  planning_context?: unknown;
+};
+
 const STORAGE_INPUTS_KEY = "hc-company-planner-inputs-v1";
 const STORAGE_CONTEXT_KEY = "hc-company-planner-context-v1";
 const PLANNER_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
@@ -125,6 +132,23 @@ function sourceLabel(url: string): string {
   } catch {
     return url;
   }
+}
+
+function formatSavedAt(value: string): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function seedPlansToJson(value: unknown): string {
+  const plans = Array.isArray(value) ? value : isRecord(value) ? [value] : [];
+  return plans.length > 0 ? JSON.stringify(plans, null, 2) : "";
 }
 
 function priorityRank(priority: string): number {
@@ -719,26 +743,79 @@ export function CompanyPlannerPanel() {
   const [error, setError] = useState("");
   const [planningContext, setPlanningContext] = useState<JsonRecord | null>(null);
   const [restored, setRestored] = useState(false);
+  const [saveLocation, setSaveLocation] = useState<"none" | "backend" | "local">("none");
+  const [savedAt, setSavedAt] = useState("");
 
   useEffect(() => {
-    try {
-      const rawInputs = window.localStorage.getItem(STORAGE_INPUTS_KEY);
-      if (rawInputs) {
-        const parsed = JSON.parse(rawInputs) as Record<string, unknown>;
-        if (typeof parsed.ownerId === "string") setOwnerId(parsed.ownerId);
-        if (typeof parsed.feedMarkdown === "string") setFeedMarkdown(parsed.feedMarkdown);
-        if (typeof parsed.seedPlansJson === "string") setSeedPlansJson(parsed.seedPlansJson);
+    let cancelled = false;
+
+    async function restorePlannerState() {
+      let restoredFromBackend = false;
+
+      try {
+        const remote = await engineFetch<PlannerWorkspaceResponse>("/planning/company");
+        if (!cancelled && remote.found && isRecord(remote.workspace)) {
+          const workspace = remote.workspace;
+          const remoteContext = isRecord(workspace.planning_context)
+            ? workspace.planning_context
+            : isRecord(remote.planning_context)
+              ? remote.planning_context
+              : null;
+
+          if (typeof workspace.user_id === "string") setOwnerId(workspace.user_id);
+          if (typeof workspace.feed_markdown === "string") setFeedMarkdown(workspace.feed_markdown);
+          setSeedPlansJson(seedPlansToJson(workspace.seed_plans));
+          if (remoteContext) setPlanningContext(remoteContext);
+          setSaveLocation("backend");
+          setSavedAt(asString(workspace.saved_at));
+          restoredFromBackend = true;
+        }
+      } catch {
+        restoredFromBackend = false;
       }
 
-      const rawContext = window.localStorage.getItem(STORAGE_CONTEXT_KEY);
-      if (rawContext) {
-        const parsedContext = JSON.parse(rawContext) as unknown;
-        if (isRecord(parsedContext)) setPlanningContext(parsedContext);
+      if (!cancelled && !restoredFromBackend) {
+        try {
+          const rawInputs = window.localStorage.getItem(STORAGE_INPUTS_KEY);
+          let hasLocalDraft = false;
+          if (rawInputs) {
+            const parsed = JSON.parse(rawInputs) as Record<string, unknown>;
+            if (typeof parsed.ownerId === "string") {
+              setOwnerId(parsed.ownerId);
+              hasLocalDraft = hasLocalDraft || Boolean(parsed.ownerId);
+            }
+            if (typeof parsed.feedMarkdown === "string") {
+              setFeedMarkdown(parsed.feedMarkdown);
+              hasLocalDraft = hasLocalDraft || Boolean(parsed.feedMarkdown.trim());
+            }
+            if (typeof parsed.seedPlansJson === "string") {
+              setSeedPlansJson(parsed.seedPlansJson);
+              hasLocalDraft = hasLocalDraft || Boolean(parsed.seedPlansJson.trim());
+            }
+          }
+
+          const rawContext = window.localStorage.getItem(STORAGE_CONTEXT_KEY);
+          if (rawContext) {
+            const parsedContext = JSON.parse(rawContext) as unknown;
+            if (isRecord(parsedContext)) {
+              setPlanningContext(parsedContext);
+              hasLocalDraft = true;
+            }
+          }
+
+          if (hasLocalDraft) setSaveLocation("local");
+        } catch {
+          // Fall through to restored flag.
+        }
       }
-      setRestored(true);
-    } catch {
-      setRestored(true);
+
+      if (!cancelled) setRestored(true);
     }
+
+    void restorePlannerState();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -778,7 +855,7 @@ export function CompanyPlannerPanel() {
       if (feedMarkdown.trim()) payload.feed_markdown = feedMarkdown;
       if (seedPlans.length > 0) payload.seed_plans = seedPlans;
 
-      const res = await engineFetch<{ planning_context?: unknown }>("/planning/company", {
+      const res = await engineFetch<PlannerWorkspaceResponse>("/planning/company", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -788,6 +865,8 @@ export function CompanyPlannerPanel() {
       }
 
       setPlanningContext(res.planning_context);
+      setSaveLocation(res.persisted ? "backend" : "local");
+      setSavedAt(isRecord(res.workspace) ? asString(res.workspace.saved_at) : "");
       setActiveTab("overview");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -796,7 +875,9 @@ export function CompanyPlannerPanel() {
     }
   }
 
-  function clearSavedPlanner() {
+  async function clearSavedPlanner() {
+    const ownerToClear = ownerId.trim();
+
     setPlanningContext(null);
     setOwnerId("");
     setFeedMarkdown("");
@@ -804,10 +885,23 @@ export function CompanyPlannerPanel() {
     setSearchQuery("");
     setStatusFilter("all");
     setSelectedPlanId("");
+    setSaveLocation("none");
+    setSavedAt("");
     setError("");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_INPUTS_KEY);
       window.localStorage.removeItem(STORAGE_CONTEXT_KEY);
+    }
+
+    try {
+      const query = ownerToClear ? `?user_id=${encodeURIComponent(ownerToClear)}` : "";
+      await engineFetch(`/planning/company${query}`, { method: "DELETE" });
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? `Projects cleared locally, but the saved engine workspace could not be removed: ${err.message}`
+          : "Projects cleared locally, but the saved engine workspace could not be removed.",
+      );
     }
   }
 
@@ -933,7 +1027,8 @@ export function CompanyPlannerPanel() {
             <span>{relationships.length} relationships mapped</span>
             <span>{feedPreviewItems.length} imported links parsed</span>
             <span>{seedPreview.items.length} structured seed plans</span>
-            {restored && (feedMarkdown.trim() || seedPlansJson.trim() || planningContext) ? <span>Saved locally in this browser</span> : null}
+            {restored && saveLocation === "backend" ? <span>{savedAt ? `Saved in engine workspace • ${formatSavedAt(savedAt)}` : "Saved in engine workspace"}</span> : null}
+            {restored && saveLocation === "local" && (feedMarkdown.trim() || seedPlansJson.trim() || planningContext) ? <span>Draft saved locally in this browser</span> : null}
           </div>
         </div>
       </section>
