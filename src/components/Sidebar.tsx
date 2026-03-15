@@ -280,7 +280,7 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
           opacity: 0.68,
         }}
       >
-        GitHub -> Vercel source of truth
+        GitHub to Vercel source of truth
       </div>
     </div>
   );
