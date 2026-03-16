@@ -7,7 +7,7 @@ It provides:
 - A panel page for each tile
 - Quick Calls for common endpoints
 - A generic API runner
-- A streaming chat UI wired to `/chat_stream` (NDJSON)
+- A chat UI wired primarily to `/api/chat`, with optional `/api/engine/chat_stream` compatibility streaming
 
 ## How It Connects
 
@@ -17,6 +17,10 @@ All panel calls go to the Next.js server route:
 - `GET/POST/... /api/engine/*`
 
 That route proxies to the HexCarb gateway (`HEXCARB_GATEWAY_URL`) and injects `x-api-key` from env.
+
+The primary web-console conversation path is `POST /api/chat`, which proxies only to backend `POST /chat`.
+
+`POST /api/engine/chat_stream` remains available as a compatibility adapter for advanced streaming and can wrap backend `POST /chat` JSON as NDJSON when needed.
 
 ## Environment Variables
 
@@ -32,6 +36,10 @@ Set these in Vercel (Production + Preview) or in a local `.env.local`.
 - `HEXCARB_GATEWAY_API_KEY`
   - The API key expected by the HexCarb gateway.
   - Fallback env name supported: `HEXCARB_API_KEY`
+
+- `HEXCARB_CHAT_TIMEOUT_MS`
+  - Timeout used by the `/api/chat` server route before failing over to the next model hint.
+  - Default: `70000`
 
 ## Local Dev
 

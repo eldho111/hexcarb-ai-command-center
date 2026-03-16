@@ -92,8 +92,8 @@ function describePanelBehavior(panel: PanelDef): PanelBehavior {
   if (panel.id === "chat" || panel.viewType === "chat") {
     return {
       label: "Canonical chat workspace",
-      detail: "This is the main HexCarb chat window. It streams grounded responses through /chat_stream and stays available as the primary model interface.",
-      endpoint: "/chat_stream",
+      detail: "This is the main HexCarb chat window. It uses /api/chat as the stable conversation path and can opt into /api/engine/chat_stream for advanced streaming with automatic fallback.",
+      endpoint: "/api/chat • /api/engine/chat_stream",
       tone: "assistant",
     };
   }

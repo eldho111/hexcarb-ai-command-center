@@ -15,7 +15,9 @@ import {
 type SidebarProps = {
   open: boolean;
   onClose: () => void;
-  engineStatus: "ok" | "down" | "unknown";
+  engineStatus: "ready" | "degraded" | "down" | "booting" | "unknown";
+  engineHint?: string | null;
+  engineIssueCount?: number;
 };
 
 type NavItem = {
@@ -214,7 +216,7 @@ function byPriority(a: PanelDef, b: PanelDef): number {
   return a.label.localeCompare(b.label);
 }
 
-export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
+export default function Sidebar({ open, onClose, engineStatus, engineHint, engineIssueCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const activePanelId = pathname?.startsWith("/panel/")
     ? pathname.split("/panel/")[1]?.split("/")[0] ?? null
@@ -244,10 +246,14 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
 
   const activeHref = pathname === "/" ? "/" : activePanelId ? `/panel/${activePanelId}` : null;
   const statusDot =
-    engineStatus === "ok"
+    engineStatus === "ready"
       ? "var(--hc-green)"
-      : engineStatus === "down"
+      : engineStatus === "degraded"
+        ? "var(--hc-accent)"
+        : engineStatus === "down"
         ? "var(--hc-active)"
+        : engineStatus === "booting"
+          ? "#52659a"
         : "var(--hc-text-muted)";
   const chatTheme = compartmentStyles("rnd");
   const chatActive = activeHref === "/panel/chat";
@@ -274,8 +280,25 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
                 Company cockpit
               </div>
               <div className="mt-1 text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                {engineStatus === "ok" ? "Systems ready" : engineStatus === "down" ? "Needs intervention" : "Checking live state"}
+                {engineStatus === "ready"
+                  ? "Systems ready"
+                  : engineStatus === "degraded"
+                    ? "Partial service loss"
+                    : engineStatus === "down"
+                      ? "Needs intervention"
+                      : engineStatus === "booting"
+                        ? "Bringing services online"
+                        : "Checking live state"}
               </div>
+              {engineHint ? (
+                <div className="mt-2 max-w-[18rem] text-xs leading-5" style={{ color: "var(--hc-text-muted)" }}>
+                  {engineHint}
+                </div>
+              ) : engineStatus === "degraded" && engineIssueCount > 0 ? (
+                <div className="mt-2 text-xs leading-5" style={{ color: "var(--hc-text-muted)" }}>
+                  {engineIssueCount} dependency checks are reporting degraded or missing state.
+                </div>
+              ) : null}
             </div>
             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: "var(--hc-border)", color: "var(--hc-text-muted)", background: "var(--hc-surface-chip)" }}>
               <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ background: statusDot }} />
@@ -298,11 +321,11 @@ export default function Sidebar({ open, onClose, engineStatus }: SidebarProps) {
                   Cited Chat
                 </div>
                 <div className="mt-1 text-xs" style={{ color: "var(--hc-text-muted)" }}>
-                  Open the main chat workspace from anywhere.
+                  Primary `/api/chat` conversation flow with optional stream fallback.
                 </div>
               </div>
               <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: chatTheme.surface, color: chatTheme.color }}>
-                Live
+                Ready
               </span>
             </div>
           </div>

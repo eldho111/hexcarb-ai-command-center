@@ -130,12 +130,21 @@ export interface CompanyDashboardSnapshot {
     source_count: number;
   };
   engine: {
+    mode: string;
     gpu_available: boolean;
     compute_mode: string;
     ollama_reachable: boolean;
     embedding_model_present: boolean;
     available_ram_gb: number | null;
     memory_used_percent: number | null;
+    current_serving_model: string | null;
+    base_model: string | null;
+    adapter_version: string | null;
+    adapted_model_active: boolean;
+    missing_adapters: number;
+    registry_warning: string | null;
+    recovery_hint: string | null;
+    dependency_states: DashboardListItem[];
     recent_failures: DashboardListItem[];
     tools_health: DashboardListItem[];
     module_errors: string[];

@@ -11,7 +11,9 @@ type TopBarProps = {
   onToggleSidebar: () => void;
   onToggleTheme: () => void;
   theme: "light" | "dark";
-  engineStatus: "ok" | "down" | "unknown";
+  engineStatus: "ready" | "degraded" | "down" | "booting" | "unknown";
+  engineHint?: string | null;
+  engineIssueCount?: number;
   appMeta?: AppMeta | null;
 };
 
@@ -37,20 +39,32 @@ export default function TopBar({
   onToggleTheme,
   theme,
   engineStatus,
+  engineHint,
+  engineIssueCount = 0,
   appMeta,
 }: TopBarProps) {
   const statusColor =
-    engineStatus === "ok"
+    engineStatus === "ready"
       ? "var(--hc-green)"
-      : engineStatus === "down"
+      : engineStatus === "degraded"
+        ? "var(--hc-accent)"
+        : engineStatus === "down"
         ? "var(--hc-active)"
+        : engineStatus === "booting"
+          ? "#52659a"
         : "var(--hc-text-muted)";
 
   const statusText =
-    engineStatus === "ok"
-      ? "Engine online"
+    engineStatus === "ready"
+      ? "Engine ready"
+      : engineStatus === "degraded"
+        ? engineIssueCount > 0
+          ? `Engine degraded (${engineIssueCount})`
+          : "Engine degraded"
       : engineStatus === "down"
         ? "Engine down"
+        : engineStatus === "booting"
+          ? "Engine booting"
         : "Engine checking";
 
   const buildLabel = appMeta ? `${appMeta.vercel_env} • ${appMeta.app_commit}` : "build pending";
@@ -114,14 +128,19 @@ export default function TopBar({
 
         <div
           className="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+          title={engineHint || statusText}
           style={{
             border: `1px solid ${statusColor}`,
             color: statusColor,
             background:
-              engineStatus === "ok"
+              engineStatus === "ready"
                 ? "rgba(78, 124, 116, 0.1)"
-                : engineStatus === "down"
+                : engineStatus === "degraded"
+                  ? "rgba(142, 106, 53, 0.12)"
+                  : engineStatus === "down"
                   ? "rgba(245, 100, 84, 0.1)"
+                  : engineStatus === "booting"
+                    ? "rgba(82, 101, 154, 0.12)"
                   : "var(--hc-surface-chip)",
           }}
         >

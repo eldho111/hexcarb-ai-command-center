@@ -176,6 +176,20 @@ function wrapChatJsonAsNdjson(payload: Record<string, unknown>): string {
         : typeof payload.model === "string"
           ? payload.model
           : undefined,
+    resolved_model:
+      typeof payload.resolved_model === "string"
+        ? payload.resolved_model
+        : typeof payload.routed_model === "string"
+          ? payload.routed_model
+          : undefined,
+    base_model: typeof payload.base_model === "string" ? payload.base_model : undefined,
+    adapter_version: typeof payload.adapter_version === "string" ? payload.adapter_version : undefined,
+    trainable: typeof payload.trainable === "boolean" ? payload.trainable : false,
+    resolved_handler: typeof payload.resolved_handler === "string" ? payload.resolved_handler : undefined,
+    fallback_chain: Array.isArray(payload.fallback_chain) ? payload.fallback_chain.map((item) => String(item)) : [],
+    policy_version: typeof payload.policy_version === "string" ? payload.policy_version : "local-only-v1",
+    adapted_model_active: Boolean(payload.adapted_model_active),
+    uses_base_fallback: Boolean(payload.uses_base_fallback),
     selected_provider:
       typeof payload.selected_provider === "string"
         ? payload.selected_provider

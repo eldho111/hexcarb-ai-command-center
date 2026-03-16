@@ -452,9 +452,38 @@ export async function GET(req: NextRequest) {
 
   const engineStatus = !healthRes.ok && !statusRes.ok
     ? "down"
-    : (!healthRes.ok || !statusRes.ok || !asBoolean(health.ollama_reachable, true) || !asBoolean(health.embedding_model_present, true))
-      ? "degraded"
-      : "ok";
+    : asString(status.mode, (!healthRes.ok || !statusRes.ok || !asBoolean(health.ollama_reachable, true) || !asBoolean(health.embedding_model_present, true)) ? "degraded" : "ok");
+
+  const modelsRegistry = asRecord(modelsRegistryRes.data);
+  const registryHealth = asRecord(modelsRegistry?.registry_health) ?? asRecord(status.local_model_registry) ?? {};
+  const resolvedRoles = asRecord(modelsRegistry?.resolved_roles) ?? {};
+  const lightRole = asRecord(resolvedRoles.light);
+  const activeRoleModels = asRecord(status.active_role_models) ?? {};
+  const registryWarning = asString(status.registry_warning) || asString(registryHealth.warning) || null;
+  const missingAdaptersValue = asNumber(status.missing_adapters, Number.NaN);
+  const missingAdapters = Number.isFinite(missingAdaptersValue)
+    ? missingAdaptersValue
+    : asNumber(registryHealth.missing_adapters);
+  const currentServingModel = asString(lightRole?.resolved_model) || asString(activeRoleModels.light) || null;
+  const baseModel = asString(lightRole?.base_model) || null;
+  const adapterVersion = asString(lightRole?.adapter_version) || null;
+  const adaptedModelActive = asBoolean(lightRole?.adapted_model_active);
+  const recoveryHint = (isRecord(status.startup) ? asString(status.startup.recovery_hint) || null : null) || registryWarning;
+
+  const dependencyStates = isRecord(status.dependencies)
+    ? Object.entries(status.dependencies).map(([name, value]) => {
+        const dependency = asRecord(value);
+        const statusText = asString(dependency.status, "unknown");
+        return makeItem({
+          id: name,
+          title: name,
+          subtitle: asString(dependency.detail, statusText === "up" ? "Healthy" : "Needs attention"),
+          meta: statusText,
+          status: statusText,
+          href: "/panel/system_status",
+        });
+      })
+    : [];
 
   const recentFailures = asRecordArray(asRecord(state.capability_state)?.last_failures)
     .slice(-4)
@@ -470,7 +499,7 @@ export async function GET(req: NextRequest) {
       }),
     );
 
-  const toolsHealth = asRecordArray(asRecord(state.capability_state)?.tools_health).map((tool, index) =>
+  let toolsHealth = asRecordArray(asRecord(state.capability_state)?.tools_health).map((tool, index) =>
     makeItem({
       id: asString(tool.name, `tool-${index}`),
       title: asString(tool.name || tool.title, "Tool health"),
@@ -483,6 +512,24 @@ export async function GET(req: NextRequest) {
   const engineErrors = [healthRes, statusRes, stateRes, modelsRegistryRes, domainsRes]
     .map((result) => result.error)
     .filter((value): value is string => Boolean(value));
+
+  if (currentServingModel || registryWarning || missingAdapters > 0) {
+    toolsHealth = [
+      makeItem({
+        id: "local-model-registry",
+        title: currentServingModel ? `Local model ${currentServingModel}` : "Local model registry",
+        subtitle: adaptedModelActive
+          ? "Hexcarb-adapted model active"
+          : baseModel
+            ? `Base fallback ${baseModel}`
+            : "Base model fallback in use",
+        meta: registryWarning || (adapterVersion ? `Adapter ${adapterVersion}` : (missingAdapters > 0 ? `${missingAdapters} adapters missing` : "Registry healthy")),
+        status: registryWarning || missingAdapters > 0 ? "warning" : "healthy",
+        href: "/panel/system_status",
+      }),
+      ...toolsHealth,
+    ];
+  }
 
   const modules: CompanyDashboardSnapshot["modules"] = {
     engine: moduleState([healthRes, statusRes, stateRes, modelsRegistryRes, domainsRes]),
@@ -499,7 +546,7 @@ export async function GET(req: NextRequest) {
     alerts.push({
       id: "engine-status",
       title: "Engine attention required",
-      detail: engineErrors[0] ?? "One or more engine dependencies are degraded.",
+      detail: recoveryHint ?? engineErrors[0] ?? "One or more engine dependencies are degraded.",
       severity: "critical",
       href: "/panel/system_status",
     });
@@ -626,12 +673,21 @@ export async function GET(req: NextRequest) {
       source_count: sources.length,
     },
     engine: {
+      mode: asString(status.mode, engineStatus),
       gpu_available: asBoolean(health.gpu_available),
       compute_mode: asString(health.compute_mode, "unknown"),
       ollama_reachable: asBoolean(health.ollama_reachable),
       embedding_model_present: asBoolean(health.embedding_model_present),
       available_ram_gb: isRecord(status.memory) ? asNumber(status.memory.available_gb, NaN) : NaN,
       memory_used_percent: isRecord(status.memory) ? asNumber(status.memory.used_percent, NaN) : NaN,
+      current_serving_model: currentServingModel,
+      base_model: baseModel,
+      adapter_version: adapterVersion,
+      adapted_model_active: adaptedModelActive,
+      missing_adapters: missingAdapters,
+      registry_warning: registryWarning,
+      recovery_hint: recoveryHint,
+      dependency_states: dependencyStates,
       recent_failures: recentFailures,
       tools_health: toolsHealth,
       module_errors: engineErrors,

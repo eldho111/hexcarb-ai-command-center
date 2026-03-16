@@ -70,6 +70,35 @@ function statusFromTone(tone: DashboardTone): "ok" | "warning" | "error" {
   return "warning";
 }
 
+function engineModeTone(mode: string): DashboardTone {
+  switch (mode) {
+    case "ready":
+      return "success";
+    case "down":
+      return "critical";
+    case "booting":
+      return "info";
+    case "degraded":
+    default:
+      return "warning";
+  }
+}
+
+function formatEngineMode(mode: string): string {
+  switch (mode) {
+    case "ready":
+      return "Ready";
+    case "degraded":
+      return "Degraded";
+    case "down":
+      return "Down";
+    case "booting":
+      return "Booting";
+    default:
+      return mode || "Unknown";
+  }
+}
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return "Pending";
   const date = new Date(value);
@@ -800,9 +829,11 @@ export function Dashboard() {
     return {
       compartment,
       href: "/panel/system_status",
-      value: snapshot.engine.compute_mode,
-      detail: `${snapshot.engine.ollama_reachable ? "Ollama reachable" : "Ollama down"} with ${snapshot.engine.module_errors.length} engine-side errors surfaced in state.`,
-      tone: snapshot.hero.engine_status === "ok" ? "success" : snapshot.hero.engine_status === "down" ? "critical" : "warning",
+      value: formatEngineMode(snapshot.engine.mode),
+      detail:
+        snapshot.engine.recovery_hint ||
+        `${snapshot.engine.dependency_states.length} dependencies tracked with ${snapshot.engine.module_errors.length} engine-side errors surfaced in state.`,
+      tone: engineModeTone(snapshot.engine.mode),
       panels: defaultPanels,
     };
   });
@@ -845,8 +876,8 @@ export function Dashboard() {
             <MetaChip>{meta ? `Built ${formatDateTime(meta.build_time)}` : "Build time pending"}</MetaChip>
             <MetaChip>Last refresh {formatDateTime(snapshot.generated_at)}</MetaChip>
             <MetaChip>
-              <StatusBadge status={snapshot.hero.engine_status === "ok" ? "ok" : snapshot.hero.engine_status === "down" ? "error" : "warning"} />
-              Engine {snapshot.hero.engine_status}
+              <StatusBadge status={statusFromTone(engineModeTone(snapshot.engine.mode))} />
+              Engine {formatEngineMode(snapshot.engine.mode)}
             </MetaChip>
           </div>
 
@@ -986,13 +1017,46 @@ export function Dashboard() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <SectionCard title="Engine Lane" subtitle="Runtime health, memory, compute mode, and recent anomalies." actionHref="/panel/system_status" actionLabel="Engine">
-          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
             <MetricCard label="GPU" value={snapshot.engine.gpu_available ? "Yes" : "No"} detail="Hardware availability" tone={snapshot.engine.gpu_available ? "success" : "warning"} />
-            <MetricCard label="Compute" value={snapshot.engine.compute_mode} detail="Effective compute mode" tone="info" />
+            <MetricCard label="Mode" value={formatEngineMode(snapshot.engine.mode)} detail={snapshot.engine.recovery_hint || "Launcher-reported runtime mode"} tone={engineModeTone(snapshot.engine.mode)} />
+            <MetricCard label="Compute" value={snapshot.engine.compute_mode} detail={snapshot.engine.embedding_model_present ? "Embedding model present" : "Embedding model missing"} tone={snapshot.engine.embedding_model_present ? "success" : "warning"} />
             <MetricCard label="Ollama" value={snapshot.engine.ollama_reachable ? "Reachable" : "Down"} detail="Model serving health" tone={snapshot.engine.ollama_reachable ? "success" : "critical"} />
+            <MetricCard
+              label="Chat Model"
+              value={snapshot.engine.adapted_model_active ? "Adapted" : "Base"}
+              detail={snapshot.engine.current_serving_model || "No active local chat model reported"}
+              tone={snapshot.engine.current_serving_model ? (snapshot.engine.adapted_model_active ? "success" : "info") : "warning"}
+            />
+            <MetricCard
+              label="Adapter"
+              value={snapshot.engine.adapter_version || (snapshot.engine.adapted_model_active ? "Ready" : "Base")}
+              detail={
+                snapshot.engine.registry_warning ||
+                (snapshot.engine.missing_adapters > 0
+                  ? `${snapshot.engine.missing_adapters} adapters missing from registry`
+                  : snapshot.engine.base_model
+                    ? `Base ${snapshot.engine.base_model}`
+                    : "Local registry healthy")
+              }
+              tone={snapshot.engine.registry_warning || snapshot.engine.missing_adapters > 0 ? "warning" : snapshot.engine.adapted_model_active ? "success" : "info"}
+            />
             <MetricCard label="RAM Used" value={snapshot.engine.memory_used_percent != null ? `${snapshot.engine.memory_used_percent.toFixed(0)}%` : "N/A"} detail={snapshot.engine.available_ram_gb != null ? `${snapshot.engine.available_ram_gb.toFixed(1)} GB free` : "Memory metrics unavailable"} tone="info" />
           </div>
-          <div className="grid gap-5 xl:grid-cols-2">
+          {snapshot.engine.recovery_hint ? (
+            <div
+              className="mb-5 rounded-2xl border px-4 py-3 text-sm"
+              style={{
+                background: "rgba(142,106,53,0.10)",
+                borderColor: "rgba(142,106,53,0.24)",
+                color: "var(--hc-text-muted)",
+              }}
+            >
+              {snapshot.engine.recovery_hint}
+            </div>
+          ) : null}
+          <div className="grid gap-5 xl:grid-cols-3">
+            <ItemList title="Dependency state" items={snapshot.engine.dependency_states} emptyLabel="Launcher has not reported dependency state yet." />
             <ItemList title="Recent failures" items={snapshot.engine.recent_failures} emptyLabel="No recent engine failures were recorded." />
             <ItemList title="Tool health" items={snapshot.engine.tools_health} emptyLabel="Tool health has not been populated in system state yet." />
           </div>
