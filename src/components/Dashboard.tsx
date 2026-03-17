@@ -664,7 +664,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="mt-6 grid gap-5">
             <div>
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
                 Recent Inquiries And Pipeline
@@ -709,7 +709,7 @@ export default function Dashboard() {
           actionLabel="Open Procurement"
           className="xl:col-span-4"
         >
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             <MetricTile label="Tagged Items" value={snapshot ? formatInteger(snapshot.production.tagged_item_count) : "…"} tone={snapshot?.production.state === "ready" ? "success" : "warning"} detail="Inventory rows currently eligible for the nanotube stock panel." />
             <MetricTile label="Unit Groups" value={snapshot ? formatInteger(snapshot.production.nanotube_units.length) : "…"} tone="info" detail="Separate unit buckets used to avoid false summed inventory totals." />
             <MetricTile label="Low Stock" value={snapshot ? formatInteger(snapshot.production.low_stock_items.length) : "…"} tone={(snapshot?.production.low_stock_items.length || 0) > 0 ? "warning" : "success"} detail="Tagged nanotube items at or below their reorder point." />
@@ -752,7 +752,7 @@ export default function Dashboard() {
           actionLabel="Open Operations"
           className="xl:col-span-4"
         >
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             <MetricTile label="Runs" value={snapshot ? formatInteger(snapshot.pilotPlant.run_count) : "…"} tone={snapshot?.pilotPlant.state === "ready" ? "success" : "warning"} detail="Structured production_run rows available to the dashboard." />
             <MetricTile label="Output" value={snapshot ? formatQuantity(snapshot.pilotPlant.total_quantity) : "…"} tone="info" detail="Summed only when the production unit is consistent within the selected range." />
             <MetricTile label="Units" value={snapshot ? (snapshot.pilotPlant.units.join(", ") || "none") : "…"} tone="info" detail="Multiple units prevent a single combined throughput trend from rendering." />
@@ -795,7 +795,7 @@ export default function Dashboard() {
           actionLabel="Open R&D"
           className="xl:col-span-4"
         >
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             <MetricTile label="Experiments" value={snapshot ? formatInteger(snapshot.rndPulse.experiments_total) : "…"} tone="info" detail="Canonical experiment records currently available." />
             <MetricTile label="Measurements" value={snapshot ? formatInteger(snapshot.rndPulse.measurements_total) : "…"} tone="success" detail="Measurement records captured for review and follow-on analysis." />
             <MetricTile label="Training State" value={snapshot?.rndPulse.training_state || "…"} tone={snapshot?.rndPulse.training_ready ? "success" : "warning"} detail={`${snapshot?.rndPulse.drafts_total ?? 0} drafts and ${snapshot?.rndPulse.sources_total ?? 0} sources are available.`} />
@@ -843,7 +843,7 @@ export default function Dashboard() {
         >
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 <MetricTile label="Mode" value={snapshot?.engine.mode || "…"} tone={snapshot?.engine.mode === "ready" ? "success" : snapshot?.engine.mode === "down" ? "critical" : "warning"} detail={snapshot?.engine.recovery_hint || "Launcher-reported runtime mode and recovery signal."} />
                 <MetricTile label="GPU" value={snapshot?.engine.gpu_available ? "Available" : "CPU"} tone={snapshot?.engine.gpu_available ? "success" : "warning"} detail="Current serving hardware available to the runtime." />
                 <MetricTile label="Dependency Issues" value={snapshot ? formatInteger(dependencyIssues(snapshot)) : "…"} tone={dependencyIssues(snapshot) > 0 ? "warning" : "success"} detail="Dependency states that are not healthy or fully up." />

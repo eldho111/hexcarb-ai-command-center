@@ -215,8 +215,9 @@ textarea {
 /* ── Text Safety Utilities ─────────────────────────────────── */
 .hc-long-value {
   min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
 
 .hc-balance {
@@ -245,8 +246,8 @@ textarea {
 }
 
 .hc-metric-tile .hc-long-value {
-  line-height: 1.02;
-  font-size: clamp(1.45rem, 2.2vw, 2.25rem);
+  line-height: 1.08;
+  font-size: clamp(1.35rem, 1.85vw, 2.15rem);
 }
 
 .hc-workspace-launcher {
