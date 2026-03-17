@@ -475,11 +475,11 @@ export async function GET(req: NextRequest) {
   const dependencyStates = isRecord(status.dependencies)
     ? Object.entries(status.dependencies).map(([name, value]) => {
         const dependency = asRecord(value);
-        const statusText = asString(dependency.status, "unknown");
+        const statusText = asString(dependency?.status, "unknown");
         return makeItem({
           id: name,
           title: name,
-          subtitle: asString(dependency.detail, statusText === "up" ? "Healthy" : "Needs attention"),
+          subtitle: asString(dependency?.detail, statusText === "up" ? "Healthy" : "Needs attention"),
           meta: statusText,
           status: statusText,
           href: "/panel/system_status",
