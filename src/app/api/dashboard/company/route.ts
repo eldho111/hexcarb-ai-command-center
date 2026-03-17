@@ -3,8 +3,14 @@ import type { NextRequest } from "next/server";
 import type {
   CompanyDashboardSnapshot,
   DashboardAlert,
+  DashboardFinanceSummary,
   DashboardListItem,
   DashboardModuleState,
+  DashboardPilotPlantSummary,
+  DashboardProductionSummary,
+  DashboardRange,
+  DashboardRndPulseSummary,
+  DashboardSalesSummary,
   DashboardTone,
 } from "@/lib/dashboard";
 import { engineFetchJson } from "@/lib/server/engineGateway";
@@ -18,6 +24,22 @@ type EndpointResult<T = unknown> = {
   ok: boolean;
   data: T | null;
   error: string | null;
+};
+
+type BucketDef = {
+  key: string;
+  label: string;
+  start: Date;
+  end: Date;
+  start_at: string;
+  end_at: string;
+};
+
+const DAY_MS = 86_400_000;
+const RANGE_DAYS: Record<DashboardRange, number> = {
+  "30d": 30,
+  "90d": 90,
+  "365d": 365,
 };
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -55,6 +77,25 @@ function asStringArray(value: unknown): string[] {
 function asTone(value: unknown, fallback: DashboardTone = "info"): DashboardTone {
   const tone = asString(value, fallback);
   return ["info", "success", "warning", "critical"].includes(tone) ? (tone as DashboardTone) : fallback;
+}
+
+function lower(value: unknown): string {
+  return asString(value).trim().toLowerCase();
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/,/g, "").trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function titleCase(value: string, fallback = "Unknown"): string {
+  const source = value.trim().replace(/[_-]+/g, " ");
+  if (!source) return fallback;
+  return source.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function normalizeCompanyStatus(value: unknown): CompanyDashboardSnapshot["company_status"] {
@@ -119,18 +160,26 @@ function parseDate(value: unknown): Date | null {
   return date;
 }
 
+function dateOf(item: JsonRecord, ...fields: string[]): Date | null {
+  for (const field of fields) {
+    const date = parseDate(item[field]);
+    if (date) return date;
+  }
+  return null;
+}
+
 function daysUntil(value: unknown): number | null {
   const date = parseDate(value);
   if (!date) return null;
   const deltaMs = date.getTime() - Date.now();
-  return Math.floor(deltaMs / 86400000);
+  return Math.floor(deltaMs / DAY_MS);
 }
 
 function severityFromStatus(status: string): DashboardTone {
   const normalized = status.trim().toLowerCase();
-  if (["done", "ok", "approved", "healthy", "active"].includes(normalized)) return "success";
+  if (["done", "ok", "approved", "healthy", "active", "up", "ready"].includes(normalized)) return "success";
   if (["blocked", "critical", "overdue", "down", "failed", "rejected"].includes(normalized)) return "critical";
-  if (["planned", "pending", "review", "warning", "unread", "open"].includes(normalized)) return "warning";
+  if (["planned", "pending", "review", "warning", "unread", "open", "booting", "degraded"].includes(normalized)) return "warning";
   return "info";
 }
 
@@ -146,8 +195,8 @@ function dedupeStrings(items: string[]): string[] {
 }
 
 function byCreatedDesc(a: JsonRecord, b: JsonRecord): number {
-  const aDate = parseDate(a.updated_at ?? a.created_at ?? a.published_at)?.getTime() ?? 0;
-  const bDate = parseDate(b.updated_at ?? b.created_at ?? b.published_at)?.getTime() ?? 0;
+  const aDate = dateOf(a, "updated_at", "created_at", "published_at", "transaction_date", "run_date")?.getTime() ?? 0;
+  const bDate = dateOf(b, "updated_at", "created_at", "published_at", "transaction_date", "run_date")?.getTime() ?? 0;
   return bDate - aDate;
 }
 
@@ -188,6 +237,81 @@ function fallbackId(prefix: string, values: unknown[]): string {
     hash = (hash * 31 + basis.charCodeAt(index)) >>> 0;
   }
   return `${prefix}-${hash.toString(16)}`;
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function startOfUtcWeek(date: Date): Date {
+  const start = startOfUtcDay(date);
+  const day = start.getUTCDay();
+  const delta = day === 0 ? -6 : 1 - day;
+  return new Date(start.getTime() + delta * DAY_MS);
+}
+
+function startOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
+
+function addBucketStart(date: Date, mode: "day" | "week" | "month"): Date {
+  if (mode === "day") return addUtcDays(date, 1);
+  if (mode === "week") return addUtcDays(date, 7);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+}
+
+function bucketMode(range: DashboardRange): "day" | "week" | "month" {
+  if (range === "30d") return "day";
+  if (range === "90d") return "week";
+  return "month";
+}
+
+function formatBucketLabel(start: Date, range: DashboardRange): string {
+  if (range === "365d") {
+    return new Intl.DateTimeFormat("en-US", { month: "short" }).format(start);
+  }
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(start);
+}
+
+function parseDashboardRange(value: string | null): DashboardRange {
+  return value === "30d" || value === "90d" || value === "365d" ? value : "90d";
+}
+
+function buildBuckets(range: DashboardRange, now: Date = new Date()): BucketDef[] {
+  const mode = bucketMode(range);
+  const days = RANGE_DAYS[range];
+  const end = addUtcDays(startOfUtcDay(now), 1);
+  let cursor = startOfUtcDay(addUtcDays(end, -days));
+
+  if (mode === "week") cursor = startOfUtcWeek(cursor);
+  if (mode === "month") cursor = startOfUtcMonth(cursor);
+
+  const buckets: BucketDef[] = [];
+  while (cursor < end) {
+    const next = addBucketStart(cursor, mode);
+    if (next <= addUtcDays(end, -days)) {
+      cursor = next;
+      continue;
+    }
+    buckets.push({
+      key: cursor.toISOString(),
+      label: formatBucketLabel(cursor, range),
+      start: cursor,
+      end: next,
+      start_at: cursor.toISOString(),
+      end_at: next.toISOString(),
+    });
+    cursor = next;
+  }
+  return buckets;
+}
+
+function bucketIndex(date: Date, buckets: BucketDef[]): number {
+  return buckets.findIndex((bucket) => date >= bucket.start && date < bucket.end);
 }
 
 function taskItem(task: JsonRecord, href = "/panel/weekly_plan"): DashboardListItem {
@@ -263,6 +387,73 @@ function feedItem(item: JsonRecord, href: string, fallbackTitle: string): Dashbo
   });
 }
 
+function financeItem(item: JsonRecord): DashboardListItem {
+  const recordType = titleCase(asString(item.record_type || item.type), "Record");
+  const vendor = asString(item.vendor || item.counterparty || item.title, "Finance entry");
+  const amount = toFiniteNumber(item.amount_inr);
+  const amountLabel = amount === null ? "Awaiting normalized INR amount" : `INR ${Math.round(amount).toLocaleString("en-IN")}`;
+  return makeItem({
+    id: asString(item.object_id, fallbackId("finance", [item.vendor, item.transaction_date, item.amount_inr])),
+    title: vendor,
+    subtitle: [recordType, formatDate(item.transaction_date)].filter(Boolean).join(" • "),
+    meta: [amountLabel, asString(item.status)].filter(Boolean).join(" • "),
+    status: asString(item.status, recordType.toLowerCase()),
+    href: "/panel/domain_accounts",
+  });
+}
+
+function salesLeadItem(item: JsonRecord): DashboardListItem {
+  const title = asString(item.lead_name || item.account || item.company || item.customer_name, "Sales inquiry");
+  return makeItem({
+    id: asString(item.object_id, fallbackId("lead", [item.lead_name, item.account, item.created_at])),
+    title,
+    subtitle: [titleCase(asString(item.record_type), "Lead"), formatDate(item.created_at)].filter(Boolean).join(" • "),
+    meta: [asString(item.stage), asString(item.next_step), asString(item.region)].filter(Boolean).join(" • "),
+    status: asString(item.stage, "open"),
+    href: "/panel/domain_sales",
+  });
+}
+
+function salesPipelineItem(item: JsonRecord): DashboardListItem {
+  const title = asString(item.account || item.company || item.customer_name || item.lead_name, "Pipeline record");
+  return makeItem({
+    id: asString(item.object_id, fallbackId("pipeline", [item.account, item.stage, item.created_at])),
+    title,
+    subtitle: [titleCase(asString(item.stage), "Pipeline"), formatDate(item.created_at)].filter(Boolean).join(" • "),
+    meta: [asString(item.opportunity_id), asString(item.product)].filter(Boolean).join(" • "),
+    status: asString(item.stage, "open"),
+    href: "/panel/domain_sales",
+  });
+}
+
+function inventoryItem(item: JsonRecord): DashboardListItem {
+  const qty = toFiniteNumber(item.qty_on_hand);
+  const unit = asString(item.unit, "unit");
+  const reorderPoint = toFiniteNumber(item.reorder_point);
+  const detail = qty === null ? "Quantity unavailable" : `${qty.toLocaleString("en-US")} ${unit} on hand`;
+  const reorder = reorderPoint === null ? "No reorder point" : `Reorder at ${reorderPoint.toLocaleString("en-US")} ${unit}`;
+  return makeItem({
+    id: asString(item.object_id, fallbackId("inventory", [item.name, item.chemical_id])),
+    title: asString(item.name || item.chemical_id, "Nanotube stock"),
+    subtitle: [detail, reorder].filter(Boolean).join(" • "),
+    meta: asString(item.batch_id || item.supplier),
+    status: qty !== null && reorderPoint !== null && qty <= reorderPoint ? "warning" : "healthy",
+    href: "/panel/domain_procurement",
+  });
+}
+
+function productionRunItem(item: JsonRecord): DashboardListItem {
+  const qty = toFiniteNumber(item.quantity);
+  return makeItem({
+    id: asString(item.object_id, fallbackId("run", [item.product, item.run_date, item.quantity])),
+    title: asString(item.product, "Pilot plant run"),
+    subtitle: [formatDate(item.run_date), asString(item.line)].filter(Boolean).join(" • "),
+    meta: qty === null ? asString(item.unit, "unit pending") : `${qty.toLocaleString("en-US")} ${asString(item.unit)}`,
+    status: asString(item.status, "open"),
+    href: "/workspace/operations",
+  });
+}
+
 function moduleState(results: EndpointResult[]): DashboardModuleState {
   const errors = results.map((result) => result.error).filter((value): value is string => Boolean(value));
   const successCount = results.filter((result) => result.ok).length;
@@ -297,7 +488,283 @@ async function safeEngine<T = unknown>(
   }
 }
 
+function buildFinanceAnalytics(
+  financeItems: JsonRecord[],
+  buckets: BucketDef[],
+): { summary: DashboardFinanceSummary; invalidFinance: number } {
+  const trend = buckets.map((bucket) => ({ ...bucket, income: 0, expense: 0, net: 0 }));
+  const validEntries: JsonRecord[] = [];
+  let invalidFinance = 0;
+
+  for (const item of financeItems) {
+    const recordType = lower(item.record_type || item.type);
+    const amount = toFiniteNumber(item.amount_inr);
+    const transactionDate = parseDate(item.transaction_date);
+    const chartEligible = (recordType === "income" || recordType === "expense") && amount !== null && transactionDate;
+
+    if (!chartEligible) {
+      invalidFinance += 1;
+      continue;
+    }
+
+    validEntries.push(item);
+    const index = bucketIndex(transactionDate, buckets);
+    if (index < 0) continue;
+    if (recordType === "income") trend[index].income += amount;
+    if (recordType === "expense") trend[index].expense += amount;
+  }
+
+  for (const point of trend) {
+    point.net = point.income - point.expense;
+  }
+
+  const incomeTotal = trend.reduce((sum, point) => sum + point.income, 0);
+  const expenseTotal = trend.reduce((sum, point) => sum + point.expense, 0);
+  const hasRangeData = trend.some((point) => point.income > 0 || point.expense > 0);
+
+  return {
+    summary: {
+      state: validEntries.length === 0 ? "needs_data" : hasRangeData ? "ready" : "empty",
+      currency: "INR" as const,
+      income_total: incomeTotal,
+      expense_total: expenseTotal,
+      net_total: incomeTotal - expenseTotal,
+      trend,
+      recent_entries: takeLatest(validEntries, 4).map(financeItem),
+    },
+    invalidFinance,
+  };
+}
+
+function buildSalesAnalytics(
+  salesItems: JsonRecord[],
+  buckets: BucketDef[],
+): { summary: DashboardSalesSummary; invalidSalesRevenue: number; invalidSalesInquiries: number } {
+  const momentum = buckets.map((bucket) => ({ ...bucket, inquiries: 0, qualified_pipeline: 0, revenue: 0 }));
+  const stageCounts = new Map<string, number>();
+  const inquiryItems: JsonRecord[] = [];
+  const pipelineItems: JsonRecord[] = [];
+  let invalidSalesRevenue = 0;
+  let invalidSalesInquiries = 0;
+  let validRevenueRows = 0;
+
+  for (const item of salesItems) {
+    const recordType = lower(item.record_type);
+    const stage = lower(item.stage);
+    const createdAt = parseDate(asString(item.created_at));
+
+    if (stage) {
+      stageCounts.set(stage, (stageCounts.get(stage) ?? 0) + 1);
+      pipelineItems.push(item);
+      if (createdAt) {
+        const index = bucketIndex(createdAt, buckets);
+        if (index >= 0 && ["qualified", "proposal", "negotiation", "pilot", "committed"].includes(stage)) {
+          momentum[index].qualified_pipeline += 1;
+        }
+      }
+    }
+
+    if (recordType === "lead" || recordType === "inquiry") {
+      if (!createdAt) {
+        invalidSalesInquiries += 1;
+      } else {
+        inquiryItems.push(item);
+        const index = bucketIndex(createdAt, buckets);
+        if (index >= 0) {
+          momentum[index].inquiries += 1;
+        }
+      }
+    }
+
+    if (recordType === "sale") {
+      const revenue = toFiniteNumber(item.revenue_inr);
+      const saleDate = dateOf(item, "sale_date", "transaction_date", "created_at");
+      if (revenue === null || !saleDate) {
+        invalidSalesRevenue += 1;
+        continue;
+      }
+      validRevenueRows += 1;
+      const index = bucketIndex(saleDate, buckets);
+      if (index >= 0) {
+        momentum[index].revenue += revenue;
+      }
+    }
+  }
+
+  const stageMix = [...stageCounts.entries()]
+    .map(([stage, count]) => ({ stage: titleCase(stage), count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const revenueTotal = momentum.reduce((sum, point) => sum + point.revenue, 0);
+  const hasSalesState = inquiryItems.length > 0 || pipelineItems.length > 0 || validRevenueRows > 0;
+  const hasRevenueData = momentum.some((point) => point.revenue > 0);
+
+  return {
+    summary: {
+      state: hasSalesState ? "ready" : "needs_data",
+      revenue_state: validRevenueRows === 0 ? "needs_data" : hasRevenueData ? "ready" : "empty",
+      inquiries_total: momentum.reduce((sum, point) => sum + point.inquiries, 0),
+      pipeline_total: pipelineItems.length,
+      qualified_total: stageMix
+        .filter((item) => ["Qualified", "Proposal", "Negotiation", "Pilot", "Committed"].includes(item.stage))
+        .reduce((sum, item) => sum + item.count, 0),
+      revenue_total: revenueTotal,
+      momentum,
+      stage_mix: stageMix,
+      recent_inquiries: takeLatest(inquiryItems, 4).map(salesLeadItem),
+      recent_pipeline: takeLatest(pipelineItems, 4).map(salesPipelineItem),
+    },
+    invalidSalesRevenue,
+    invalidSalesInquiries,
+  };
+}
+
+function buildProductionAnalytics(
+  procurementItems: JsonRecord[],
+): { summary: DashboardProductionSummary; untaggedInventory: number; mixedUnitNanotubeGroups: number } {
+  const inventoryItems = procurementItems.filter((item) => lower(item.object_type) === "inventory_item");
+  const taggedItems = inventoryItems.filter((item) => lower(item.material_category) === "nanotube");
+  const grouped = new Map<string, { unit: string; quantity: number; item_count: number; low_stock_count: number }>();
+
+  for (const item of taggedItems) {
+    const unit = asString(item.unit, "unit");
+    const qty = toFiniteNumber(item.qty_on_hand) ?? 0;
+    const reorder = toFiniteNumber(item.reorder_point);
+    const key = unit || "unit";
+    const current = grouped.get(key) ?? { unit: key, quantity: 0, item_count: 0, low_stock_count: 0 };
+    current.quantity += qty;
+    current.item_count += 1;
+    if (reorder !== null && qty <= reorder) current.low_stock_count += 1;
+    grouped.set(key, current);
+  }
+
+  const nanotubeUnits = [...grouped.values()]
+    .map((group) => ({
+      label: `${group.unit.toUpperCase()} on hand`,
+      unit: group.unit,
+      quantity: Number(group.quantity.toFixed(2)),
+      item_count: group.item_count,
+      low_stock_count: group.low_stock_count,
+    }))
+    .sort((a, b) => b.quantity - a.quantity);
+
+  const lowStockItems = taggedItems
+    .filter((item) => {
+      const qty = toFiniteNumber(item.qty_on_hand);
+      const reorder = toFiniteNumber(item.reorder_point);
+      return qty !== null && reorder !== null && qty <= reorder;
+    })
+    .slice(0, 4)
+    .map(inventoryItem);
+
+  return {
+    summary: {
+      state: taggedItems.length > 0 ? "ready" : "needs_data",
+      tagged_item_count: taggedItems.length,
+      nanotube_units: nanotubeUnits,
+      low_stock_items: lowStockItems,
+    },
+    untaggedInventory: inventoryItems.filter((item) => !lower(item.material_category)).length,
+    mixedUnitNanotubeGroups: Math.max(0, grouped.size - 1),
+  };
+}
+
+function buildPilotPlantAnalytics(
+  productionItems: JsonRecord[],
+  buckets: BucketDef[],
+): { summary: DashboardPilotPlantSummary; invalidProductionRuns: number } {
+  const validRuns: JsonRecord[] = [];
+  const units = new Set<string>();
+  let invalidProductionRuns = 0;
+
+  for (const item of productionItems) {
+    const objectType = lower(item.object_type);
+    const product = asString(item.product);
+    const status = asString(item.status);
+    const unit = asString(item.unit);
+    const quantity = toFiniteNumber(item.quantity);
+    const runDate = parseDate(item.run_date);
+    const valid = objectType === "production_run" && Boolean(product) && Boolean(status) && Boolean(unit) && quantity !== null && Boolean(runDate);
+    if (!valid) {
+      invalidProductionRuns += 1;
+      continue;
+    }
+    validRuns.push(item);
+    units.add(unit);
+  }
+
+  const trend = buckets.map((bucket) => ({ ...bucket, quantity: 0, run_count: 0, unit: units.size === 1 ? [...units][0] || "" : "" }));
+  if (units.size === 1) {
+    for (const item of validRuns) {
+      const runDate = parseDate(item.run_date);
+      const quantity = toFiniteNumber(item.quantity);
+      if (!runDate || quantity === null) continue;
+      const index = bucketIndex(runDate, buckets);
+      if (index < 0) continue;
+      trend[index].quantity += quantity;
+      trend[index].run_count += 1;
+      trend[index].unit = asString(item.unit);
+    }
+  }
+
+  const hasRangeData = trend.some((point) => point.run_count > 0);
+  const ready = validRuns.length > 0 && units.size === 1 && hasRangeData;
+
+  return {
+    summary: {
+      state: ready ? "ready" : "needs_data",
+      run_count: validRuns.length,
+      total_quantity: ready ? trend.reduce((sum, point) => sum + point.quantity, 0) : 0,
+      units: [...units],
+      trend,
+      recent_runs: takeLatest(validRuns, 4).map(productionRunItem),
+    },
+    invalidProductionRuns,
+  };
+}
+
+function buildRndPulseAnalytics(
+  experiments: JsonRecord[],
+  measurements: JsonRecord[],
+  drafts: JsonRecord[],
+  sources: JsonRecord[],
+  trainingReady: boolean,
+  trainingState: string,
+  buckets: BucketDef[],
+): DashboardRndPulseSummary {
+  const momentum = buckets.map((bucket) => ({ ...bucket, experiments: 0, measurements: 0 }));
+
+  for (const item of experiments) {
+    const created = dateOf(item, "updated_at", "created_at", "date");
+    if (!created) continue;
+    const index = bucketIndex(created, buckets);
+    if (index >= 0) momentum[index].experiments += 1;
+  }
+
+  for (const item of measurements) {
+    const created = dateOf(item, "recorded_at", "updated_at", "created_at", "timestamp");
+    if (!created) continue;
+    const index = bucketIndex(created, buckets);
+    if (index >= 0) momentum[index].measurements += 1;
+  }
+
+  return {
+    state: experiments.length > 0 || measurements.length > 0 || drafts.length > 0 || sources.length > 0 ? "ready" : "needs_data",
+    experiments_total: experiments.length,
+    measurements_total: measurements.length,
+    drafts_total: drafts.length,
+    sources_total: sources.length,
+    training_ready: trainingReady,
+    training_state: trainingState,
+    momentum,
+  };
+}
+
 export async function GET(req: NextRequest) {
+  const selectedRange = parseDashboardRange(req.nextUrl.searchParams.get("range"));
+  const buckets = buildBuckets(selectedRange);
+
   const [
     healthRes,
     statusRes,
@@ -319,6 +786,8 @@ export async function GET(req: NextRequest) {
     newsRes,
     salesRes,
     financeRes,
+    procurementRes,
+    productionRes,
     experimentsRes,
     draftsRes,
     measurementsRes,
@@ -349,6 +818,8 @@ export async function GET(req: NextRequest) {
     safeEngine(req, "/news/list"),
     safeEngine(req, "/domains/sales/items"),
     safeEngine(req, "/domains/finance/items"),
+    safeEngine(req, "/domains/procurement/items"),
+    safeEngine(req, "/domains/production/items"),
     safeEngine(req, "/experiments/list"),
     safeEngine(req, "/experiments/drafts"),
     safeEngine(req, "/measurements"),
@@ -391,6 +862,8 @@ export async function GET(req: NextRequest) {
   const newsItems = asRecordArray(asRecord(newsRes.data)?.items);
   const salesItems = asRecordArray(asRecord(salesRes.data)?.items);
   const financeItems = asRecordArray(asRecord(financeRes.data)?.items);
+  const procurementItems = asRecordArray(asRecord(procurementRes.data)?.items);
+  const productionItems = asRecordArray(asRecord(productionRes.data)?.items);
   const experiments = asRecordArray(asRecord(experimentsRes.data)?.experiments);
   const drafts = asRecordArray(asRecord(draftsRes.data)?.drafts);
   const measurements = asRecordArray(asRecord(measurementsRes.data)?.measurements);
@@ -533,12 +1006,26 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  const financeAnalytics = buildFinanceAnalytics(financeItems, buckets);
+  const salesAnalytics = buildSalesAnalytics(salesItems, buckets);
+  const productionAnalytics = buildProductionAnalytics(procurementItems);
+  const pilotPlantAnalytics = buildPilotPlantAnalytics(productionItems, buckets);
+  const rndPulse = buildRndPulseAnalytics(
+    experiments,
+    measurements,
+    drafts,
+    sources,
+    asBoolean(trainingReadiness.ready),
+    asString(trainingStatus.state, "idle"),
+    buckets,
+  );
+
   const modules: CompanyDashboardSnapshot["modules"] = {
     engine: moduleState([healthRes, statusRes, stateRes, modelsRegistryRes, domainsRes]),
     execution: moduleState([executionHealthRes, weeklyPlanRes, riskRes, goalsRes, tasksRes]),
     projects: moduleState([planningRes, planningNextRes]),
-    operations: moduleState([complianceRes, approvalsRes, notificationsRes, qualityRes]),
-    growth: moduleState([leadStatusRes, fundingRes, newsRes, salesRes, financeRes]),
+    operations: moduleState([complianceRes, approvalsRes, notificationsRes, qualityRes, financeRes, procurementRes, productionRes]),
+    growth: moduleState([leadStatusRes, fundingRes, newsRes, salesRes]),
     rnd: moduleState([experimentsRes, draftsRes, measurementsRes, trainingStatusRes, trainingReadinessRes, sourcesRes]),
     activity: moduleState([decisionsRes, narrativesRes, messagesRes]),
   };
@@ -589,11 +1076,24 @@ export async function GET(req: NextRequest) {
       href: "/panel/compliance",
     });
   }
+  if (productionAnalytics.summary.low_stock_items.length > 0) {
+    alerts.push({
+      id: "nanotube-stock",
+      title: `${productionAnalytics.summary.low_stock_items.length} nanotube inventory items need reordering`,
+      detail: "Operations has tagged nanotube stock at or below its reorder point.",
+      severity: "warning",
+      href: "/panel/domain_procurement",
+    });
+  }
 
   const snapshot: CompanyDashboardSnapshot = {
     ok: true,
     generated_at: new Date().toISOString(),
     company_name: "HexCarb AI Engine",
+    filters: {
+      selected_range: selectedRange,
+      available_ranges: ["30d", "90d", "365d"],
+    },
     modules,
     hero: {
       company_name: "HexCarb",
@@ -661,6 +1161,7 @@ export async function GET(req: NextRequest) {
       notifications: recentNotifications,
       messages: recentMessages,
     },
+    finance: financeAnalytics.summary,
     growth: {
       lead_status: {
         available: asBoolean(leadStatus.available),
@@ -675,6 +1176,9 @@ export async function GET(req: NextRequest) {
       latest_news: takeLatest(newsItems, 4).map((item) => feedItem(item, "/panel/news", "News item")),
       sales_count: salesItems.length,
     },
+    sales: salesAnalytics.summary,
+    production: productionAnalytics.summary,
+    pilotPlant: pilotPlantAnalytics.summary,
     rnd: {
       experiments_count: experiments.length,
       draft_count: drafts.length,
@@ -684,14 +1188,23 @@ export async function GET(req: NextRequest) {
       indexed_chunks: asNumber(health.active_collection_count),
       source_count: sources.length,
     },
+    rndPulse,
+    dataQuality: {
+      invalidFinance: financeAnalytics.invalidFinance,
+      invalidSalesRevenue: salesAnalytics.invalidSalesRevenue,
+      invalidSalesInquiries: salesAnalytics.invalidSalesInquiries,
+      untaggedInventory: productionAnalytics.untaggedInventory,
+      mixedUnitNanotubeGroups: productionAnalytics.mixedUnitNanotubeGroups,
+      invalidProductionRuns: pilotPlantAnalytics.invalidProductionRuns,
+    },
     engine: {
       mode: asString(status.mode, engineStatus),
       gpu_available: asBoolean(health.gpu_available),
       compute_mode: asString(health.compute_mode, "unknown"),
       ollama_reachable: asBoolean(health.ollama_reachable),
       embedding_model_present: asBoolean(health.embedding_model_present),
-      available_ram_gb: isRecord(status.memory) ? asNumber(status.memory.available_gb, NaN) : NaN,
-      memory_used_percent: isRecord(status.memory) ? asNumber(status.memory.used_percent, NaN) : NaN,
+      available_ram_gb: isRecord(status.memory) ? asNumber(status.memory.available_gb, Number.NaN) : Number.NaN,
+      memory_used_percent: isRecord(status.memory) ? asNumber(status.memory.used_percent, Number.NaN) : Number.NaN,
       current_serving_model: currentServingModel,
       base_model: baseModel,
       adapter_version: adapterVersion,
@@ -712,10 +1225,10 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  if (!Number.isFinite(snapshot.engine.available_ram_gb ?? NaN)) {
+  if (!Number.isFinite(snapshot.engine.available_ram_gb ?? Number.NaN)) {
     snapshot.engine.available_ram_gb = null;
   }
-  if (!Number.isFinite(snapshot.engine.memory_used_percent ?? NaN)) {
+  if (!Number.isFinite(snapshot.engine.memory_used_percent ?? Number.NaN)) {
     snapshot.engine.memory_used_percent = null;
   }
 

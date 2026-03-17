@@ -11,26 +11,26 @@
 
   /* Surfaces */
   --hc-bg: #ffffff;
-  --hc-bg-soft: #edf2f7;
-  --hc-page-bg: #f4f7fb;
-  --hc-border: #cad6e2;
-  --hc-card-bg: rgba(255, 255, 255, 0.72);
-  --hc-surface-chip: rgba(255, 255, 255, 0.78);
-  --hc-surface-elevated: rgba(255, 255, 255, 0.82);
-  --hc-surface-elevated-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 246, 241, 0.98));
-  --hc-surface-muted: rgba(15, 25, 36, 0.06);
+  --hc-bg-soft: #eef3f8;
+  --hc-page-bg: #f7f8fb;
+  --hc-border: #d3dde8;
+  --hc-card-bg: rgba(255, 255, 255, 0.82);
+  --hc-surface-chip: rgba(255, 255, 255, 0.88);
+  --hc-surface-elevated: rgba(255, 255, 255, 0.88);
+  --hc-surface-elevated-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 247, 243, 0.98));
+  --hc-surface-muted: rgba(15, 25, 36, 0.05);
   --hc-surface-muted-strong: rgba(15, 25, 36, 0.08);
   --hc-surface-muted-border: rgba(15, 25, 36, 0.12);
 
   /* Text */
   --hc-heading: #0b1621;
   --hc-text: #102131;
-  --hc-text-muted: #34485d;
+  --hc-text-muted: #415468;
   --hc-text-inverse-muted: rgba(255, 255, 255, 0.72);
 
   /* Shadows */
-  --shadow-soft: 0 10px 30px rgba(15, 25, 36, 0.08);
-  --shadow-lift: 0 18px 40px rgba(15, 25, 36, 0.14);
+  --shadow-soft: 0 14px 36px rgba(15, 25, 36, 0.08);
+  --shadow-lift: 0 22px 48px rgba(15, 25, 36, 0.14);
 
   /* Radii */
   --radius-sm: 10px;
@@ -64,8 +64,8 @@
   --hc-surface-muted-strong: rgba(230, 238, 247, 0.08);
   --hc-surface-muted-border: rgba(230, 238, 247, 0.16);
   --hc-text-inverse-muted: rgba(255, 255, 255, 0.78);
-  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.34);
-  --shadow-lift: 0 18px 40px rgba(0, 0, 0, 0.48);
+  --shadow-soft: 0 12px 34px rgba(0, 0, 0, 0.34);
+  --shadow-lift: 0 22px 48px rgba(0, 0, 0, 0.48);
 }
 
 /* ── Tailwind theme bridge ─────────────────────────────────── */
@@ -92,10 +92,27 @@ html {
 
 body {
   margin: 0;
-  background: var(--hc-page-bg);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(142, 106, 53, 0.08), transparent 22%),
+    radial-gradient(circle at 100% 0%, rgba(78, 124, 116, 0.08), transparent 22%),
+    var(--hc-page-bg);
   color: var(--hc-text);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 /* ── Glass Card Utility ────────────────────────────────────── */
@@ -104,8 +121,9 @@ body {
   border: 1px solid var(--hc-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(8px);
-  transition: transform var(--dur-base) var(--ease),
+  backdrop-filter: blur(10px);
+  transition:
+    transform var(--dur-base) var(--ease),
     box-shadow var(--dur-base) var(--ease),
     border-color var(--dur-base) var(--ease);
 }
@@ -131,7 +149,8 @@ body {
   text-transform: uppercase;
   padding: 0.65rem 1rem;
   cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease),
+  transition:
+    transform var(--dur-fast) var(--ease),
     box-shadow var(--dur-base) var(--ease),
     background-color var(--dur-base) var(--ease),
     border-color var(--dur-base) var(--ease),
@@ -191,6 +210,69 @@ body {
   width: 26px;
   height: 1px;
   background: currentColor;
+}
+
+/* ── Text Safety Utilities ─────────────────────────────────── */
+.hc-long-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.hc-balance {
+  text-wrap: balance;
+}
+
+.hc-clamp-2,
+.hc-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hc-clamp-2 {
+  -webkit-line-clamp: 2;
+}
+
+.hc-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+
+.hc-metric-tile {
+  display: flex;
+  min-height: 172px;
+  flex-direction: column;
+}
+
+.hc-metric-tile .hc-long-value {
+  line-height: 1.02;
+  font-size: clamp(1.45rem, 2.2vw, 2.25rem);
+}
+
+.hc-workspace-launcher {
+  display: flex;
+  min-height: 196px;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--shadow-soft);
+}
+
+.hc-compact-item {
+  min-height: 96px;
+}
+
+.hc-module-head {
+  min-height: 118px;
+}
+
+.hc-chart-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.96));
+}
+
+@media (min-width: 1280px) {
+  .hc-module-head {
+    min-height: 128px;
+  }
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
