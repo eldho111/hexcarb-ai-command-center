@@ -33,7 +33,7 @@ type PanelBehavior = {
   tone: PanelBehaviorTone;
 };
 
-function ViewRouter({ panel }: { panel: PanelDef }) {
+export function ViewRouter({ panel }: { panel: PanelDef }) {
   switch (panel.viewType) {
     case "ingest":
       return <IngestPanel />;
@@ -48,7 +48,7 @@ function ViewRouter({ panel }: { panel: PanelDef }) {
     case "dashboard":
       return <DashboardView config={panel.viewConfig as DashboardConfig} />;
     case "form-action":
-      return <FormActionView config={panel.viewConfig as FormActionConfig} />;
+      return <FormActionView config={panel.viewConfig as FormActionConfig} panelId={panel.id} panelLabel={panel.label} workspaceId={panel.workspaceId} />;
     case "workflow":
       return <WorkflowView config={panel.viewConfig as WorkflowConfig} />;
     case "crud":
@@ -157,114 +157,142 @@ function describePanelBehavior(panel: PanelDef): PanelBehavior {
   };
 }
 
-export function PanelPage(props: { panel: PanelDef }) {
-  const { panel } = props;
+function PanelBehaviorCard({ behavior }: { behavior: PanelBehavior }) {
+  const behaviorColors = behaviorStyle(behavior.tone);
+  return (
+    <div className="rounded-2xl border px-4 py-3" style={{ background: "var(--hc-surface-elevated)", borderColor: behaviorColors.border }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: behaviorColors.background, color: behaviorColors.color }}>
+          {behavior.label}
+        </span>
+        {behavior.endpoint ? (
+          <span className="text-[11px] font-medium" style={{ color: "var(--hc-text-muted)" }}>
+            {behavior.endpoint}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-2 text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
+        {behavior.detail}
+      </p>
+    </div>
+  );
+}
+
+function QuickCallStrip({ panel, embedded }: { panel: PanelDef; embedded: boolean }) {
+  const theme = compartmentBadgeStyle(panel.compartment);
+  const featuredCalls = panel.quickCalls.slice(0, embedded ? 2 : 3);
+  if (!featuredCalls.length) return null;
+
+  return (
+    <div className={`grid gap-3 ${embedded ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+      {featuredCalls.map((call) => (
+        <div key={`${call.method}-${call.path}`} className="rounded-2xl border p-4" style={{ background: "var(--hc-surface-elevated)", borderColor: "var(--hc-border)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
+              {call.label}
+            </span>
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, color: theme.color }}>
+              {call.method}
+            </span>
+          </div>
+          <div className="mt-2 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
+            {call.path}
+          </div>
+          {call.hint ? (
+            <div className="mt-2 text-[11px] leading-5" style={{ color: "var(--hc-text-muted)" }}>
+              {call.hint}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PanelSurface({ panel, embedded = false, workspaceLabel }: { panel: PanelDef; embedded?: boolean; workspaceLabel?: string }) {
   const compartmentLabel = COMPARTMENT_LABELS[panel.compartment] ?? panel.compartment;
   const [runnerOpen, setRunnerOpen] = useState(false);
 
   const defaultCall = panel.quickCalls.find((call) => call.method === "GET") || panel.quickCalls[0];
   const showRunner = panel.viewType === "runner";
   const theme = compartmentBadgeStyle(panel.compartment);
-  const featuredCalls = useMemo(() => panel.quickCalls.slice(0, 3), [panel.quickCalls]);
   const behavior = useMemo(() => describePanelBehavior(panel), [panel]);
-  const behaviorColors = behaviorStyle(behavior.tone);
 
-  return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-5 py-10">
-      <section className="hc-card relative overflow-hidden p-6 sm:p-8">
+  const body = (
+    <div className={embedded ? "space-y-5" : "space-y-6"}>
+      <section className="hc-card relative overflow-hidden p-5 sm:p-6">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.18), transparent 26%), radial-gradient(circle at 88% 12%, rgba(78,124,116,0.14), transparent 24%), linear-gradient(135deg, var(--hc-surface-muted), transparent)",
+              embedded
+                ? "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.16), transparent 24%), linear-gradient(135deg, var(--hc-surface-muted), transparent)"
+                : "radial-gradient(circle at 12% 18%, rgba(142,106,53,0.18), transparent 26%), radial-gradient(circle at 88% 12%, rgba(78,124,116,0.14), transparent 24%), linear-gradient(135deg, var(--hc-surface-muted), transparent)",
           }}
         />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
+        <div className="relative flex flex-wrap items-start justify-between gap-5">
           <div className="flex max-w-3xl items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border text-lg font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-sm font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
               {panel.label.slice(0, 2)}
             </div>
             <div>
-              <nav className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
-                <Link href="/" className="transition-colors hover:underline" style={{ color: "var(--hc-accent)" }}>
-                  Founder Dashboard
-                </Link>
-                <span className="px-1 opacity-50">/</span>
-                <span>{compartmentLabel}</span>
-                <span className="px-1 opacity-50">/</span>
-                <span style={{ color: "var(--hc-text)" }}>{panel.label}</span>
-              </nav>
+              {!embedded ? (
+                <nav className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--hc-text-muted)" }}>
+                  <Link href="/" className="transition-colors hover:underline" style={{ color: "var(--hc-accent)" }}>
+                    HexCarb Dashboard
+                  </Link>
+                  <span className="px-1 opacity-50">/</span>
+                  <span>{compartmentLabel}</span>
+                  <span className="px-1 opacity-50">/</span>
+                  <span style={{ color: "var(--hc-text)" }}>{panel.label}</span>
+                </nav>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--hc-text-muted)" }}>
+                  <span>{workspaceLabel || compartmentLabel}</span>
+                  <span className="opacity-40">/</span>
+                  <span style={{ color: theme.color }}>{panel.label}</span>
+                </div>
+              )}
 
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight" style={{ color: "var(--hc-heading)" }}>
+              <h1 className={`mt-3 font-semibold tracking-tight ${embedded ? "text-2xl" : "text-3xl"}`} style={{ color: "var(--hc-heading)" }}>
                 {panel.label}
               </h1>
-              <p className="mt-2 text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
+              <p className="mt-2 max-w-2xl text-sm leading-7" style={{ color: "var(--hc-text-muted)" }}>
                 {panel.description}
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, borderColor: theme.border, color: theme.color }}>
-                  {compartmentLabel}
+                  {workspaceLabel || compartmentLabel}
                 </span>
                 <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: "var(--hc-surface-chip)", borderColor: "var(--hc-border)", color: "var(--hc-text-muted)" }}>
                   {panel.viewType.replace(/-/g, " ")}
                 </span>
-              </div>
-
-              <div className="mt-4 rounded-2xl border px-4 py-3" style={{ background: "var(--hc-surface-elevated)", borderColor: behaviorColors.border }}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: behaviorColors.background, color: behaviorColors.color }}>
-                    {behavior.label}
+                {panel.utility ? (
+                  <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ background: "var(--hc-surface-muted)", borderColor: "var(--hc-surface-muted-border)", color: "var(--hc-text-muted)" }}>
+                    {panel.utility}
                   </span>
-                  {behavior.endpoint ? (
-                    <span className="text-[11px] font-medium" style={{ color: "var(--hc-text-muted)" }}>
-                      {behavior.endpoint}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-sm leading-6" style={{ color: "var(--hc-text-muted)" }}>
-                  {behavior.detail}
-                </p>
+                ) : null}
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            <Link href="/" className="hc-btn hc-btn-ghost text-xs">
-              Overview
-            </Link>
-            {panel.id !== "chat" ? (
-              <Link href="/panel/chat" className="hc-btn hc-btn-primary text-xs">
-                Chat
+            {!embedded ? (
+              <Link href="/" className="hc-btn hc-btn-ghost text-xs">
+                Overview
               </Link>
             ) : null}
+            <Link href={`/panel/${panel.id}`} className="hc-btn hc-btn-primary text-xs">
+              {embedded ? "Open Full Page" : panel.id !== "chat" ? "Open Full Page" : "Chat Open"}
+            </Link>
           </div>
         </div>
 
-        {featuredCalls.length > 0 ? (
-          <div className="relative mt-6 grid gap-3 md:grid-cols-3">
-            {featuredCalls.map((call) => (
-              <div key={`${call.method}-${call.path}`} className="rounded-2xl border p-4" style={{ background: "var(--hc-surface-elevated)", borderColor: "var(--hc-border)" }}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold" style={{ color: "var(--hc-heading)" }}>
-                    {call.label}
-                  </span>
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ background: theme.surface, color: theme.color }}>
-                    {call.method}
-                  </span>
-                </div>
-                <div className="mt-2 text-xs leading-6" style={{ color: "var(--hc-text-muted)" }}>
-                  {call.path}
-                </div>
-                {call.hint ? (
-                  <div className="mt-2 text-[11px] leading-5" style={{ color: "var(--hc-text-muted)" }}>
-                    {call.hint}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <div className="relative mt-6 space-y-4">
+          <PanelBehaviorCard behavior={behavior} />
+          <QuickCallStrip panel={panel} embedded={embedded} />
+        </div>
       </section>
 
       <InstructionBanner panelId={panel.id} instructions={panel.instructions} tips={panel.tips} />
@@ -316,4 +344,11 @@ export function PanelPage(props: { panel: PanelDef }) {
       </div>
     </div>
   );
+
+  if (embedded) return body;
+  return <div className="mx-auto w-full max-w-6xl space-y-6 px-5 py-10">{body}</div>;
+}
+
+export function PanelPage(props: { panel: PanelDef }) {
+  return <PanelSurface panel={props.panel} />;
 }

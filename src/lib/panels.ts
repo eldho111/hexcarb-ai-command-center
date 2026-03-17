@@ -54,6 +54,29 @@ export type NavCompartmentId =
   | "engine"
   | "advanced";
 
+export type WorkspaceId = "projects" | "rnd" | "growth" | "operations" | "engine";
+
+export type UtilityId = "assistant" | "inbox";
+
+export type WorkspaceSubviewDef = {
+  id: string;
+  label: string;
+  description: string;
+  panelIds: string[];
+  defaultPanelId?: string;
+};
+
+export type WorkspaceDef = {
+  id: WorkspaceId;
+  label: string;
+  shortLabel: string;
+  description: string;
+  href: string;
+  compartment: Exclude<NavCompartmentId, "overview" | "advanced">;
+  badgeLabel: string;
+  subviews: WorkspaceSubviewDef[];
+};
+
 export type PanelDef = {
   id: string;
   label: string;
@@ -66,8 +89,11 @@ export type PanelDef = {
   tips?: string[];
   relatedPanels?: RelatedLinkDef[];
   compartment: NavCompartmentId;
+  workspaceId?: WorkspaceId;
   priority?: number;
   advanced?: boolean;
+  secondaryOnly?: boolean;
+  utility?: UtilityId;
 };
 
 type PanelDraft = Omit<PanelDef, "compartment"> & {
@@ -105,14 +131,241 @@ export const COMPARTMENT_ORDER: NavCompartmentId[] = [
 ];
 
 export const COMPARTMENT_LABELS: Record<NavCompartmentId, string> = {
-  overview: "Overview",
+  overview: "HexCarb Dashboard",
   projects: "Projects & Execution",
-  rnd: "R&D & Knowledge",
+  rnd: "Research & Development",
   growth: "Growth & Market",
-  operations: "Operations & Governance",
-  engine: "Engine & Infrastructure",
+  operations: "Daily Operations",
+  engine: "AI Engine",
   advanced: "Advanced",
 };
+
+export const WORKSPACES: WorkspaceDef[] = [
+  {
+    id: "projects",
+    label: "Projects & Execution",
+    shortLabel: "Projects",
+    description: "Plans, execution lanes, decisions, and company narratives in one workbench.",
+    href: "/workspace/projects",
+    compartment: "projects",
+    badgeLabel: "Exec",
+    subviews: [
+      {
+        id: "projects",
+        label: "Projects",
+        description: "Company planning board, linked plans, and generated next actions.",
+        panelIds: ["projects"],
+      },
+      {
+        id: "weekly",
+        label: "Weekly Plan",
+        description: "Weekly tasks, execution health, and short-horizon planning.",
+        panelIds: ["weekly_plan"],
+      },
+      {
+        id: "decisions",
+        label: "Decisions",
+        description: "Decision memory, rationale, and search across past choices.",
+        panelIds: ["decisions"],
+      },
+      {
+        id: "narratives",
+        label: "Narratives",
+        description: "Generated company narratives and operating summaries.",
+        panelIds: ["narratives"],
+      },
+    ],
+  },
+  {
+    id: "rnd",
+    label: "Research & Development",
+    shortLabel: "R&D",
+    description: "Experiments, measurements, knowledge capture, training, and analysis.",
+    href: "/workspace/rnd",
+    compartment: "rnd",
+    badgeLabel: "Lab",
+    subviews: [
+      {
+        id: "experiments",
+        label: "Experiments",
+        description: "Canonical experiment records plus the live R&D inventory that supports them.",
+        panelIds: ["experiment_form", "lab_items"],
+        defaultPanelId: "experiment_form",
+      },
+      {
+        id: "drafts",
+        label: "Drafts",
+        description: "Experiment review queue before data becomes canonical.",
+        panelIds: ["experiment_drafts"],
+      },
+      {
+        id: "measurements",
+        label: "Measurements",
+        description: "Measurement uploads and linked experimental evidence.",
+        panelIds: ["measurements"],
+      },
+      {
+        id: "knowledge",
+        label: "Knowledge",
+        description: "Source ingest, research scouting, and reasoning over captured evidence.",
+        panelIds: ["doc_ingest", "scout", "reasoning"],
+        defaultPanelId: "doc_ingest",
+      },
+      {
+        id: "training",
+        label: "Training",
+        description: "Dataset readiness, registry posture, and training state.",
+        panelIds: ["training"],
+      },
+      {
+        id: "analysis",
+        label: "Analysis",
+        description: "AI-assisted plotting and analytical guidance for experiment interpretation.",
+        panelIds: ["plot"],
+      },
+    ],
+  },
+  {
+    id: "growth",
+    label: "Growth & Market",
+    shortLabel: "Growth",
+    description: "Lead intelligence, sales context, outreach, funding, and market signals.",
+    href: "/workspace/growth",
+    compartment: "growth",
+    badgeLabel: "Market",
+    subviews: [
+      {
+        id: "leads",
+        label: "Leads",
+        description: "Read-only CNT lead intelligence and ranked opportunity views.",
+        panelIds: ["lead_intel"],
+      },
+      {
+        id: "sales",
+        label: "Sales",
+        description: "Sales-domain objects and opportunity records.",
+        panelIds: ["domain_sales"],
+      },
+      {
+        id: "outreach",
+        label: "Outreach",
+        description: "AI-assisted outbound drafts grounded in sales context.",
+        panelIds: ["sales_email_generator"],
+      },
+      {
+        id: "funding",
+        label: "Funding",
+        description: "Funding pipeline, decks, and opportunity tracking.",
+        panelIds: ["funding"],
+      },
+      {
+        id: "signals",
+        label: "Signals",
+        description: "External market and materials news worth monitoring.",
+        panelIds: ["news"],
+      },
+    ],
+  },
+  {
+    id: "operations",
+    label: "Daily Operations",
+    shortLabel: "Operations",
+    description: "Governance, quality, finance, procurement, assets, and people operations.",
+    href: "/workspace/operations",
+    compartment: "operations",
+    badgeLabel: "Ops",
+    subviews: [
+      {
+        id: "governance",
+        label: "Governance",
+        description: "Compliance tasks, filing posture, and operating governance.",
+        panelIds: ["compliance"],
+      },
+      {
+        id: "quality",
+        label: "Quality",
+        description: "Quality tracking, deviations, and corrective actions.",
+        panelIds: ["quality"],
+      },
+      {
+        id: "procurement",
+        label: "Procurement",
+        description: "Vendor, purchasing, and procurement-domain objects.",
+        panelIds: ["domain_procurement"],
+      },
+      {
+        id: "assets",
+        label: "Assets",
+        description: "Asset registry and equipment tracking.",
+        panelIds: ["domain_assets"],
+      },
+      {
+        id: "people",
+        label: "People",
+        description: "HR records, operating policies, and people data.",
+        panelIds: ["domain_hr"],
+      },
+      {
+        id: "finance",
+        label: "Finance",
+        description: "Finance-domain records and operating ledger views.",
+        panelIds: ["domain_accounts"],
+      },
+    ],
+  },
+  {
+    id: "engine",
+    label: "AI Engine",
+    shortLabel: "Engine",
+    description: "Runtime health, models, telemetry, configuration, and repair workflows.",
+    href: "/workspace/engine",
+    compartment: "engine",
+    badgeLabel: "Infra",
+    subviews: [
+      {
+        id: "runtime",
+        label: "Runtime",
+        description: "Live engine health, dependencies, and serving posture.",
+        panelIds: ["system_status"],
+      },
+      {
+        id: "models",
+        label: "Models",
+        description: "Capabilities, local registry, and infrastructure inventory.",
+        panelIds: ["capabilities", "cloud"],
+        defaultPanelId: "capabilities",
+      },
+      {
+        id: "telemetry",
+        label: "Telemetry",
+        description: "Live signals and runtime telemetry trends.",
+        panelIds: ["telemetry"],
+      },
+      {
+        id: "config",
+        label: "Config",
+        description: "System state, planning context, and active configuration.",
+        panelIds: ["system_state"],
+      },
+      {
+        id: "repair",
+        label: "Repair",
+        description: "Engine cognition and guided repair workflows for degraded states.",
+        panelIds: ["cognition", "engine_repair"],
+        defaultPanelId: "cognition",
+      },
+    ],
+  },
+];
+
+export const PRIMARY_NAV_ITEMS = [
+  { id: "dashboard", label: "HexCarb Dashboard", href: "/" },
+  ...WORKSPACES.map((workspace) => ({
+    id: workspace.id,
+    label: workspace.label,
+    href: workspace.href,
+  })),
+] as const;
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 
@@ -1084,9 +1337,9 @@ const RAW_PANELS: PanelDraft[] = [
   },
 ];
 
-const PANEL_ENHANCEMENTS: Record<string, { compartment: NavCompartmentId; priority?: number; advanced?: boolean }> = {
+const PANEL_ENHANCEMENTS: Record<string, { compartment: NavCompartmentId; workspaceId?: WorkspaceId; priority?: number; advanced?: boolean; secondaryOnly?: boolean; utility?: UtilityId }> = {
   doc_ingest: { compartment: "rnd", priority: 2 },
-  chat: { compartment: "rnd", priority: 1 },
+  chat: { compartment: "overview", priority: 1, secondaryOnly: true, utility: "assistant" },
   system_status: { compartment: "engine", priority: 1 },
   telemetry: { compartment: "engine", priority: 2 },
   capabilities: { compartment: "engine", priority: 3 },
@@ -1107,10 +1360,10 @@ const PANEL_ENHANCEMENTS: Record<string, { compartment: NavCompartmentId; priori
   news: { compartment: "growth", priority: 6 },
   funding: { compartment: "growth", priority: 5 },
   compliance: { compartment: "operations", priority: 1 },
-  approvals: { compartment: "projects", priority: 3 },
-  notifications: { compartment: "operations", priority: 6 },
-  messages: { compartment: "operations", priority: 7 },
-  overseer: { compartment: "overview", priority: 1 },
+  approvals: { compartment: "operations", priority: 3, secondaryOnly: true, utility: "inbox" },
+  notifications: { compartment: "operations", priority: 6, secondaryOnly: true, utility: "inbox" },
+  messages: { compartment: "operations", priority: 7, secondaryOnly: true, utility: "inbox" },
+  overseer: { compartment: "projects", workspaceId: "projects", priority: 6, secondaryOnly: true },
   domain_hr: { compartment: "operations", priority: 5 },
   domain_procurement: { compartment: "operations", priority: 3 },
   domain_assets: { compartment: "operations", priority: 4 },
@@ -1125,13 +1378,23 @@ const PANEL_ENHANCEMENTS: Record<string, { compartment: NavCompartmentId; priori
   admin_scaffold: { compartment: "advanced", priority: 2, advanced: true },
 };
 
+const PRIMARY_WORKSPACE_COMPARTMENTS = new Set<WorkspaceId>(["projects", "rnd", "growth", "operations", "engine"]);
+
 export const PANELS: PanelDef[] = RAW_PANELS.map((panel) => {
   const enhancement = PANEL_ENHANCEMENTS[panel.id] || { compartment: "advanced" as NavCompartmentId };
+  const workspaceId = enhancement.workspaceId
+    ?? (PRIMARY_WORKSPACE_COMPARTMENTS.has(enhancement.compartment as WorkspaceId)
+      ? enhancement.compartment as WorkspaceId
+      : undefined);
+
   return {
     ...panel,
     compartment: enhancement.compartment,
+    workspaceId,
     priority: enhancement.priority,
     advanced: enhancement.advanced ?? false,
+    secondaryOnly: enhancement.secondaryOnly ?? false,
+    utility: enhancement.utility,
   } as PanelDef;
 });
 
@@ -1172,4 +1435,37 @@ export function getPanelsByCompartment(): Record<NavCompartmentId, PanelDef[]> {
   };
   for (const panel of PANELS) out[panel.compartment].push(panel);
   return out;
+}
+
+const WORKSPACE_LOOKUP = Object.fromEntries(
+  WORKSPACES.map((workspace) => [workspace.id, workspace]),
+) as Record<WorkspaceId, WorkspaceDef>;
+
+export function getWorkspaceById(workspaceId: string): WorkspaceDef | null {
+  return WORKSPACE_LOOKUP[workspaceId as WorkspaceId] || null;
+}
+
+export function getPanelsByWorkspace(workspaceId: WorkspaceId): PanelDef[] {
+  return PANELS.filter((panel) => panel.workspaceId === workspaceId);
+}
+
+export function getWorkspaceSubview(workspaceId: WorkspaceId, subviewId: string): WorkspaceSubviewDef | null {
+  const workspace = getWorkspaceById(workspaceId);
+  return workspace?.subviews.find((subview) => subview.id === subviewId) || null;
+}
+
+export function getWorkspaceSubviewPanels(workspaceId: WorkspaceId, subviewId: string): PanelDef[] {
+  const subview = getWorkspaceSubview(workspaceId, subviewId);
+  if (!subview) return [];
+  return subview.panelIds
+    .map((panelId) => getPanelById(panelId))
+    .filter((panel): panel is PanelDef => Boolean(panel));
+}
+
+export function getPanelsByUtility(utility: UtilityId): PanelDef[] {
+  return PANELS.filter((panel) => panel.utility === utility);
+}
+
+export function getPrimaryWorkspacePanels(workspaceId: WorkspaceId): PanelDef[] {
+  return getPanelsByWorkspace(workspaceId).filter((panel) => !panel.advanced && !panel.secondaryOnly);
 }

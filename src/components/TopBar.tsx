@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type { AppMeta } from "@/lib/meta";
@@ -10,10 +9,14 @@ type TopBarProps = {
   compartmentLabel?: string;
   onToggleSidebar: () => void;
   onToggleTheme: () => void;
+  onOpenAssistant: () => void;
+  onOpenInbox: () => void;
+  onOpenQuickSwitch: () => void;
   theme: "light" | "dark";
   engineStatus: "ready" | "degraded" | "down" | "booting" | "unknown";
   engineHint?: string | null;
   engineIssueCount?: number;
+  inboxCount?: number;
   appMeta?: AppMeta | null;
 };
 
@@ -37,10 +40,14 @@ export default function TopBar({
   compartmentLabel,
   onToggleSidebar,
   onToggleTheme,
+  onOpenAssistant,
+  onOpenInbox,
+  onOpenQuickSwitch,
   theme,
   engineStatus,
   engineHint,
   engineIssueCount = 0,
+  inboxCount = 0,
   appMeta,
 }: TopBarProps) {
   const statusColor =
@@ -49,10 +56,10 @@ export default function TopBar({
       : engineStatus === "degraded"
         ? "var(--hc-accent)"
         : engineStatus === "down"
-        ? "var(--hc-active)"
-        : engineStatus === "booting"
-          ? "#52659a"
-        : "var(--hc-text-muted)";
+          ? "var(--hc-active)"
+          : engineStatus === "booting"
+            ? "#52659a"
+            : "var(--hc-text-muted)";
 
   const statusText =
     engineStatus === "ready"
@@ -65,11 +72,10 @@ export default function TopBar({
         ? "Engine down"
         : engineStatus === "booting"
           ? "Engine booting"
-        : "Engine checking";
+          : "Engine checking";
 
   const buildLabel = appMeta ? `${appMeta.vercel_env} • ${appMeta.app_commit}` : "build pending";
   const gatewayLabel = appMeta ? `Gateway ${appMeta.gateway_host_label}` : "Gateway pending";
-  const onChatPanel = panelLabel === "Cited Chat";
 
   return (
     <header
@@ -112,22 +118,25 @@ export default function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         <Pill>
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--hc-accent)" }} />
           {buildLabel}
         </Pill>
         <Pill>{gatewayLabel}</Pill>
 
-        <Link href="/panel/chat" className={`hc-btn ${onChatPanel ? "hc-btn-ghost" : "hc-btn-primary"} text-xs`}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          {onChatPanel ? "Chat Open" : "Open Chat"}
-        </Link>
+        <button type="button" onClick={onOpenQuickSwitch} className="hc-btn hc-btn-ghost text-xs">
+          Quick Switch
+        </button>
+        <button type="button" onClick={onOpenInbox} className="hc-btn hc-btn-ghost text-xs">
+          Inbox{inboxCount > 0 ? ` (${inboxCount})` : ""}
+        </button>
+        <button type="button" onClick={onOpenAssistant} className="hc-btn hc-btn-primary text-xs">
+          Assistant
+        </button>
 
         <div
-          className="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+          className="hidden items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold sm:flex"
           title={engineHint || statusText}
           style={{
             border: `1px solid ${statusColor}`,
@@ -138,10 +147,10 @@ export default function TopBar({
                 : engineStatus === "degraded"
                   ? "rgba(142, 106, 53, 0.12)"
                   : engineStatus === "down"
-                  ? "rgba(245, 100, 84, 0.1)"
-                  : engineStatus === "booting"
-                    ? "rgba(82, 101, 154, 0.12)"
-                  : "var(--hc-surface-chip)",
+                    ? "rgba(245, 100, 84, 0.1)"
+                    : engineStatus === "booting"
+                      ? "rgba(82, 101, 154, 0.12)"
+                      : "var(--hc-surface-chip)",
           }}
         >
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: statusColor }} />

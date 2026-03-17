@@ -433,6 +433,8 @@ export async function GET(req: NextRequest) {
     .map(complianceItem);
 
   const unreadNotifications = notifications.filter((item) => asString(item.status, "unread") !== "read");
+  const unreadMessages = messages.filter((item) => !(Array.isArray(item.read_by) && item.read_by.length > 0));
+  const approvalItems = approvals.slice(0, 5).map(approvalItem);
   const recentNotifications = takeLatest(notifications, 5).map(notificationItem);
   const recentMessages = takeLatest(messages, 5).map((item) =>
     makeItem({
@@ -637,8 +639,9 @@ export async function GET(req: NextRequest) {
     },
     operations: {
       compliance_due: complianceDue,
-      approvals: approvals.slice(0, 5).map(approvalItem),
+      approvals: approvalItems,
       notifications: recentNotifications,
+      finance_count: financeItems.length,
       quality: {
         open_deviations: asNumber(quality.open_deviations),
         overdue_actions: asNumber(quality.overdue_actions),
@@ -647,6 +650,16 @@ export async function GET(req: NextRequest) {
           ? Object.fromEntries(Object.entries(quality.counts_by_status).map(([key, value]) => [key, asNumber(value)]))
           : {},
       },
+    },
+    inbox: {
+      unread_count: approvals.length + unreadNotifications.length + unreadMessages.length,
+      urgent_count: approvals.length + unreadNotifications.length + unreadMessages.length,
+      approvals_count: approvals.length,
+      notifications_count: notifications.length,
+      messages_count: messages.length,
+      approvals: approvalItems,
+      notifications: recentNotifications,
+      messages: recentMessages,
     },
     growth: {
       lead_status: {
@@ -661,7 +674,6 @@ export async function GET(req: NextRequest) {
       news_count: newsItems.length,
       latest_news: takeLatest(newsItems, 4).map((item) => feedItem(item, "/panel/news", "News item")),
       sales_count: salesItems.length,
-      finance_count: financeItems.length,
     },
     rnd: {
       experiments_count: experiments.length,

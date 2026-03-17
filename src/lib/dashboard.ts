@@ -25,6 +25,16 @@ export type DashboardModuleState = {
   error: string | null;
 };
 
+export type DashboardInboxSummary = {
+  unread_count: number;
+  urgent_count: number;
+  approvals_count: number;
+  notifications_count: number;
+  messages_count: number;
+  approvals: DashboardListItem[];
+  notifications: DashboardListItem[];
+  messages: DashboardListItem[];
+};
 
 export type CompanyStatusLane = {
   tone: DashboardTone;
@@ -98,6 +108,7 @@ export interface CompanyDashboardSnapshot {
     compliance_due: DashboardListItem[];
     approvals: DashboardListItem[];
     notifications: DashboardListItem[];
+    finance_count: number;
     quality: {
       open_deviations: number;
       overdue_actions: number;
@@ -105,6 +116,7 @@ export interface CompanyDashboardSnapshot {
       counts_by_status: Record<string, number>;
     };
   };
+  inbox: DashboardInboxSummary;
   growth: {
     lead_status: {
       available: boolean;
@@ -118,7 +130,6 @@ export interface CompanyDashboardSnapshot {
     news_count: number;
     latest_news: DashboardListItem[];
     sales_count: number;
-    finance_count: number;
   };
   rnd: {
     experiments_count: number;
